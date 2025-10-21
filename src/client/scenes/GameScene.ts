@@ -1,8 +1,9 @@
-import Phaser from 'phaser';
+// File: src/client/scenes/GameScene.ts
+// Hapus import Phaser
 import { quizQuestions, Question } from '../questions';
 import { BaseScene } from './BaseScene'; // Import BaseScene
 
-// ... (Salin 'DifficultySettings' type dari file lama Anda) ...
+// ... (DifficultySettings type tetap sama) ...
 type DifficultySettings = {
   [key: string]: {
     totalQuestions: number;
@@ -17,8 +18,8 @@ type DifficultySettings = {
 };
 
 export class Game extends BaseScene { // extends BaseScene
-  // ... (Salin semua properti private dari file lama Anda) ...
-  private difficultySettings: DifficultySettings = {
+  // ... (Properti private tetap sama) ...
+   private difficultySettings: DifficultySettings = {
     mudah: {
       totalQuestions: 20,
       totalTime: 180,
@@ -55,8 +56,9 @@ export class Game extends BaseScene { // extends BaseScene
   private scoreText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
   private questionText!: Phaser.GameObjects.Text;
-  private optionButtons: Phaser.GameObjects.Container[] = [];
+  private optionButtons: Phaser.GameObjects.Container[] = []; // Ubah ke Container
   private feedbackText!: Phaser.GameObjects.Text;
+
 
   constructor() {
     super('GameScene');
@@ -67,25 +69,27 @@ export class Game extends BaseScene { // extends BaseScene
     this.difficulty = data.difficulty;
   }
 
-  create() {
-    // --- Bagian Setup (Hanya sekali) ---
+  // Tambahkan override
+  public override create() {
     const settings = this.difficultySettings[this.difficulty];
     if (!settings) {
-      this.scene.start('MainMenuScene');
+      console.error("Invalid difficulty setting:", this.difficulty);
+      this.scene.start('PilihKesulitanScene', { mode: this.mode }); // Kembali ke scene sebelumnya
       return;
     }
 
     this.questions = this.selectQuestions(this.difficulty);
-    if (this.questions.length < settings.totalQuestions) {
-      alert(`Error: Bank soal tidak cukup`);
-      this.scene.start('MainMenuScene');
+    if (!this.questions || this.questions.length < settings.totalQuestions) {
+      alert(`Error: Bank soal tidak cukup untuk kesulitan ${this.difficulty}. Butuh ${settings.totalQuestions}, tersedia ${this.questions?.length || 0}.`);
+      this.scene.start('PilihKesulitanScene', { mode: this.mode }); // Kembali
       return;
     }
+
 
     this.currentQuestionIndex = 0;
     this.score = 0;
     this.remainingTime = settings.totalTime;
-    this.lives = this.mode === 'survive' ? 3 : 99;
+    this.lives = this.mode === 'survive' ? 3 : 99; // 99 dianggap infinite untuk mode belajar
 
     this.timerEvent = this.time.addEvent({
       delay: 1000,
@@ -93,67 +97,68 @@ export class Game extends BaseScene { // extends BaseScene
       callbackScope: this,
       loop: true,
     });
-    
-    // Panggil create dari BaseScene (wajib)
-    super.create();
-    
-    // --- Panggil Draw (Visual) ---
-    this.draw();
+
+    super.create(); // Panggil create dari BaseScene (background, resize handler)
+    // Setel ulang target tombol kembali & tambahkan tombol musik
+    super.createCommonButtons('PilihKesulitanScene');
+    this.draw(); // Panggil draw untuk elemen scene ini
   }
 
-  draw() {
-    super.draw(); // Bersihkan layar
+  // Tambahkan override
+  public override draw() {
+    super.draw(); // Bersihkan elemen spesifik scene + panggil tombol umum
 
-    // --- Gambar Ulang Semua Elemen Visual ---
-    
-    // Posisi UI dinamis
-    const topMargin = this.scale.height * 0.1;
+    const topMargin = this.scale.height * 0.15; // Sedikit turunkan UI atas
+    const questionY = this.scale.height * 0.30; // Posisi Y pertanyaan
+    let startY = this.scale.height * 0.45; // Posisi Y tombol jawaban pertama
+    const buttonSpacing = this.scale.height * 0.12; // Jarak antar tombol jawaban
+    const feedbackY = this.scale.height * 0.9; // Posisi Y feedback
+
+    // Score Text [cite: 42]
     this.scoreText = this.add.text(this.scale.width * 0.1, topMargin, `Skor: ${this.score}`, {
       fontSize: '24px',
       color: '#000',
+      backgroundColor: '#ffffffcc', // Background semi-transparan
+      padding: { x: 5, y: 2 }
     }).setOrigin(0, 0.5);
 
+    // Timer Text [cite: 43]
     this.timerText = this.add.text(this.centerX, topMargin, `Waktu: ${this.remainingTime}`, {
       fontSize: '24px',
       color: '#000',
+      backgroundColor: '#ffffffcc',
+      padding: { x: 5, y: 2 }
     }).setOrigin(0.5, 0.5);
 
+    // Lives Text (jika mode survive)
     if (this.mode === 'survive') {
       this.livesText = this.add.text(this.scale.width * 0.9, topMargin, `Nyawa: ${this.lives}`, {
         fontSize: '24px',
         color: '#000',
+        backgroundColor: '#ffffffcc',
+        padding: { x: 5, y: 2 }
       }).setOrigin(1, 0.5);
     }
 
-    // Teks Pertanyaan
-    this.questionText = this.add.text(this.centerX, this.scale.height * 0.25, '', {
-      fontSize: '32px',
+    // Teks Pertanyaan [cite: 44]
+    this.questionText = this.add.text(this.centerX, questionY, '', {
+      fontSize: '28px', // Sedikit lebih kecil agar muat
       color: '#000',
       align: 'center',
       wordWrap: { width: this.scale.width * 0.9 },
+      backgroundColor: '#ffffffcc',
+      padding: { x: 10, y: 5 }
     }).setOrigin(0.5);
 
     // Teks Feedback
-    this.feedbackText = this.add.text(this.centerX, this.scale.height * 0.9, '', {
+    this.feedbackText = this.add.text(this.centerX, feedbackY, '', {
       fontSize: '28px',
       color: '#000',
+      backgroundColor: '#ffffffcc',
+      padding: { x: 10, y: 5 }
     }).setOrigin(0.5);
 
-    // Tampilkan pertanyaan (akan menggambar tombol)
-    this.displayQuestion();
-  }
-
-  updateTimer() {
-    this.remainingTime--;
-    this.timerText.setText(`Waktu: ${this.remainingTime}`);
-    if (this.remainingTime <= 0) {
-      this.timerEvent.remove();
-      this.gameOver();
-    }
-  }
-
-  displayQuestion() {
-    // Hapus tombol lama saja
+    // Hapus tombol jawaban lama sebelum menampilkan yang baru
     this.optionButtons.forEach(button => button.destroy());
     this.optionButtons = [];
     this.feedbackText.setText('');
@@ -164,120 +169,147 @@ export class Game extends BaseScene { // extends BaseScene
       return;
     }
 
-    this.questionText.setText(currentQuestion.question);
+    this.questionText.setText(`(${this.currentQuestionIndex + 1}/${this.questions.length}) ${currentQuestion.question}`);
 
-    const buttonLabels = ['A', 'B', 'C', 'D'];
-    const correctAnswerText = currentQuestion.options[currentQuestion.correctAnswerIndex];
-    const shuffledOptions = this.shuffleArray([...currentQuestion.options]);
+    // Acak jawaban
+    const optionsWithOriginalIndex = currentQuestion.options.map((option, index) => ({ text: option, originalIndex: index }));
+    const shuffledOptions = this.shuffleArray(optionsWithOriginalIndex);
 
-    // Posisi tombol dinamis
-    let startY = this.scale.height * 0.45;
-    const buttonSpacing = this.scale.height * 0.12;
 
-    shuffledOptions.forEach((optionText, index) => {
-      const buttonLabel = `${buttonLabels[index]}. ${optionText}`;
-      const button = this.createButton(
+    // Buat tombol jawaban baru [cite: 45, 46, 47, 48]
+    shuffledOptions.forEach((optionData) => {
+      const button = this.createOptionButton(
         startY,
-        buttonLabel,
-        optionText,
-        correctAnswerText
+        optionData.text,
+        optionData.originalIndex === currentQuestion.correctAnswerIndex // Tandai jika ini jawaban benar
       );
       this.optionButtons.push(button);
       startY += buttonSpacing;
     });
   }
 
-  createButton(
-    y: number,
-    labelText: string,
-    optionText: string,
-    correctAnswerText: string
-  ): Phaser.GameObjects.Container {
-    const buttonWidth = this.scale.width * 0.9;
-    const buttonHeight = 60;
 
-    const buttonRect = this.add
-      .rectangle(0, 0, buttonWidth, buttonHeight)
-      .setFillStyle(0xffffff)
-      .setStrokeStyle(2, 0x000000);
+    createOptionButton(y: number, text: string, isCorrect: boolean): Phaser.GameObjects.Container {
+        const buttonWidth = this.scale.width * 0.9;
+        const buttonHeight = 60;
 
-    const buttonText = this.add.text(0, 0, labelText, {
-      fontSize: '20px',
-      color: '#000000',
-      align: 'left',
-      wordWrap: { width: buttonWidth - 40 },
-    }).setOrigin(0.5);
+        const buttonRect = this.add.rectangle(0, 0, buttonWidth, buttonHeight)
+            .setFillStyle(0xffffff, 0.9)
+            .setStrokeStyle(2, 0x000000);
 
-    const container = this.add.container(this.centerX, y, [buttonRect, buttonText]);
-    container.setSize(buttonWidth, buttonHeight);
-    container.setInteractive({ useHandCursor: true });
-    container.setData('optionText', optionText);
-    container.setData('correctAnswerText', correctAnswerText);
+        const buttonText = this.add.text(20, buttonHeight / 2, text, { // Posisi teks dari kiri
+            fontSize: '20px',
+            color: '#000000',
+            align: 'left',
+            wordWrap: { width: buttonWidth - 40 }
+        }).setOrigin(0, 0.5); // Origin kiri tengah
 
-    container.on('pointerdown', () => this.handleAnswer(container));
-    container.on('pointerover', () => (buttonRect as Phaser.GameObjects.Rectangle).setFillStyle(0xeeeeee));
-    container.on('pointerout', () => (buttonRect as Phaser.GameObjects.Rectangle).setFillStyle(0xffffff));
-    return container;
-  }
-  
-  // ... (Salin sisa fungsi: handleAnswer, nextQuestion, gameOver, selectQuestions, shuffleArray) ...
-  // ... dari file GameScene.ts lama Anda ...
-  
-  handleAnswer(selectedButton: Phaser.GameObjects.Container) {
-    const selectedOptionText = selectedButton.getData('optionText');
-    const correctAnswerText = selectedButton.getData('correctAnswerText');
-    const selectedButtonRect = selectedButton.getAt(0) as Phaser.GameObjects.Rectangle;
+        const container = this.add.container(this.centerX - buttonWidth / 2, y - buttonHeight / 2, [buttonRect, buttonText]);
+        container.setSize(buttonWidth, buttonHeight);
+        container.setInteractive({ useHandCursor: true });
+        container.setData('isCorrect', isCorrect); // Simpan status jawaban benar/salah
 
-    this.optionButtons.forEach(button => button.removeInteractive());
-    this.timerEvent.paused = true;
+        container.on('pointerdown', () => this.handleAnswer(container));
+        container.on('pointerover', () => (buttonRect as Phaser.GameObjects.Rectangle).setFillStyle(0xeeeeee, 0.9));
+        container.on('pointerout', () => (buttonRect as Phaser.GameObjects.Rectangle).setFillStyle(0xffffff, 0.9));
 
-    if (selectedOptionText === correctAnswerText) {
-      this.score += 10;
-      this.feedbackText.setText('BENAR!').setColor('#4CAF50');
-      selectedButtonRect.setFillStyle(0x4CAF50);
-    } else {
-      if (this.mode === 'survive') {
-        this.lives -= 1;
-        this.livesText.setText(`Nyawa: ${this.lives}`);
-      }
-      this.feedbackText.setText('SALAH!').setColor('#F44336');
-      selectedButtonRect.setFillStyle(0xF44336);
-
-      const correctButton = this.optionButtons.find(
-        button => button.getData('optionText') === correctAnswerText
-      );
-      if (correctButton) {
-        const correctButtonRect = correctButton.getAt(0) as Phaser.GameObjects.Rectangle;
-        correctButtonRect.setFillStyle(0x4CAF50);
-      }
+        return container;
     }
 
-    this.scoreText.setText(`Skor: ${this.score}`);
-    this.time.delayedCall(1500, () => this.nextQuestion());
-  }
+
+    handleAnswer(selectedButton: Phaser.GameObjects.Container) {
+        const isCorrect = selectedButton.getData('isCorrect');
+        const selectedButtonRect = selectedButton.getAt(0) as Phaser.GameObjects.Rectangle;
+
+        // Nonaktifkan semua tombol & pause timer
+        this.optionButtons.forEach(button => button.removeInteractive());
+        this.timerEvent.paused = true;
+
+        if (isCorrect) {
+            this.score += 10;
+            this.feedbackText.setText('BENAR!').setColor('#008000').setBackgroundColor('#90EE90cc'); // Hijau
+            selectedButtonRect.setFillStyle(0x90EE90); // Light green fill
+        } else {
+            if (this.mode === 'survive') {
+                this.lives -= 1;
+                if (this.livesText) this.livesText.setText(`Nyawa: ${this.lives}`);
+            }
+            this.feedbackText.setText('SALAH!').setColor('#FF0000').setBackgroundColor('#FFCCCBcc'); // Merah
+            selectedButtonRect.setFillStyle(0xFFCCCB); // Light red fill
+
+            // Tandai jawaban yang benar
+            const correctButton = this.optionButtons.find(button => button.getData('isCorrect'));
+            if (correctButton) {
+                const correctRect = correctButton.getAt(0) as Phaser.GameObjects.Rectangle;
+                correctRect.setFillStyle(0x90EE90); // Tandai benar dengan hijau muda
+            }
+        }
+
+        this.scoreText.setText(`Skor: ${this.score}`);
+
+        // Tunggu sejenak sebelum ke pertanyaan berikutnya atau game over
+        this.time.delayedCall(1500, () => this.nextQuestion());
+    }
+
+
+  updateTimer() {
+    if (this.remainingTime > 0) {
+        this.remainingTime--;
+        if (this.timerText) { // Pastikan timerText sudah dibuat
+            this.timerText.setText(`Waktu: ${this.remainingTime}`);
+        }
+        if (this.remainingTime <= 10) { // Beri warna merah jika waktu hampir habis
+             if (this.timerText) this.timerText.setColor('#FF0000');
+        }
+    }
+
+    if (this.remainingTime <= 0) {
+        this.timerEvent.remove();
+        this.gameOver('Waktu Habis!'); // Beri alasan game over
+    }
+}
+
 
   nextQuestion() {
     if (this.mode === 'survive' && this.lives <= 0) {
-      this.gameOver();
+      this.gameOver('Nyawa Habis!'); // Beri alasan
       return;
     }
+
     this.currentQuestionIndex++;
     if (this.currentQuestionIndex >= this.questions.length) {
-      this.gameOver();
+      this.gameOver('Kuis Selesai!'); // Beri alasan
       return;
     }
+
     this.timerEvent.paused = false;
-    this.draw(); // Panggil draw() untuk menggambar ulang pertanyaan baru
+    this.draw(); // Panggil draw() untuk menggambar ulang pertanyaan baru dan UI lainnya
   }
 
-  gameOver() {
-    this.timerEvent.remove();
-    this.scene.start('ResultsScene', { score: this.score });
+  gameOver(reason: string = 'Game Over') {
+      this.timerEvent?.remove(); // Hentikan timer jika ada
+
+      // Tampilkan alasan game over sebelum pindah scene
+      this.feedbackText.setText(reason).setColor(reason.includes('Selesai') ? '#0000FF' : '#FF0000'); // Biru jika selesai, Merah jika gagal
+      this.optionButtons.forEach(button => button.removeInteractive()); // Nonaktifkan tombol
+
+      this.time.delayedCall(2000, () => { // Tunggu 2 detik
+          this.scene.start('ResultsScene', { score: this.score });
+      });
   }
 
-  selectQuestions(difficulty: string): Question[] {
+
+  // ... (selectQuestions dan shuffleArray tetap sama) ...
+   selectQuestions(difficulty: string): Question[] {
     const settings = this.difficultySettings[difficulty];
     if (!settings) { return []; }
+
+    // Pastikan quizQuestions memiliki isi
+    if (!quizQuestions || quizQuestions.length === 0) {
+        console.error("Bank soal (quizQuestions) kosong!");
+        return [];
+    }
+
 
     const easyPool = this.shuffleArray(quizQuestions.filter((q: Question) => q.difficulty === 'mudah'));
     const mediumPool = this.shuffleArray(quizQuestions.filter((q: Question) => q.difficulty === 'menengah'));
@@ -285,29 +317,59 @@ export class Game extends BaseScene { // extends BaseScene
     const proPool = this.shuffleArray(quizQuestions.filter((q: Question) => q.difficulty === 'pro'));
 
     let finalQuestions: Question[] = [];
-    const easyCount = Math.round(settings.totalQuestions * settings.mix.mudah);
-    const mediumCount = Math.round(settings.totalQuestions * settings.mix.menengah);
-    const hardCount = Math.round(settings.totalQuestions * settings.mix.sulit);
-    const proCount = Math.round(settings.totalQuestions * settings.mix.pro);
+    const counts = {
+        mudah: Math.round(settings.totalQuestions * settings.mix.mudah),
+        menengah: Math.round(settings.totalQuestions * settings.mix.menengah),
+        sulit: Math.round(settings.totalQuestions * settings.mix.sulit),
+        pro: Math.round(settings.totalQuestions * settings.mix.pro)
+    };
 
-    finalQuestions = finalQuestions.concat(easyPool.slice(0, easyCount));
-    finalQuestions = finalQuestions.concat(mediumPool.slice(0, mediumCount));
-    finalQuestions = finalQuestions.concat(hardPool.slice(0, hardCount));
-    finalQuestions = finalQuestions.concat(proPool.slice(0, proCount));
-
-    const remainingMediumPool = mediumPool.slice(mediumCount);
-    while (finalQuestions.length < settings.totalQuestions && remainingMediumPool.length > 0) {
-      const extraQuestion = remainingMediumPool.pop();
-      if (extraQuestion) {
-        finalQuestions.push(extraQuestion);
-      }
+    // Pastikan total count tidak melebihi totalQuestions karena pembulatan
+    let currentTotal = counts.mudah + counts.menengah + counts.sulit + counts.pro;
+    while (currentTotal > settings.totalQuestions) {
+        // Kurangi dari kategori terbanyak (selain mudah jika memungkinkan)
+        if (counts.pro > 0) counts.pro--;
+        else if (counts.sulit > 0) counts.sulit--;
+        else if (counts.menengah > 0) counts.menengah--;
+        else if (counts.mudah > 0) counts.mudah--; // Terpaksa kurangi mudah
+        currentTotal--;
     }
-    return this.shuffleArray(finalQuestions).slice(0, settings.totalQuestions);
+     while (currentTotal < settings.totalQuestions) {
+        // Tambah ke kategori menengah atau sulit jika memungkinkan, lalu mudah
+        if (settings.mix.menengah > 0) counts.menengah++;
+        else if (settings.mix.sulit > 0) counts.sulit++;
+        else if (settings.mix.pro > 0) counts.pro++;
+        else counts.mudah++; // Terpaksa tambah mudah
+        currentTotal++;
+    }
+
+
+    finalQuestions = finalQuestions.concat(easyPool.slice(0, counts.mudah));
+    finalQuestions = finalQuestions.concat(mediumPool.slice(0, counts.menengah));
+    finalQuestions = finalQuestions.concat(hardPool.slice(0, counts.sulit));
+    finalQuestions = finalQuestions.concat(proPool.slice(0, counts.pro));
+
+
+    // Jika jumlah masih kurang (misal bank soal kurang), coba ambil dari pool lain
+    const pools = [easyPool.slice(counts.mudah), mediumPool.slice(counts.menengah), hardPool.slice(counts.sulit), proPool.slice(counts.pro)];
+    let poolIndex = 0;
+     while(finalQuestions.length < settings.totalQuestions) {
+        const pool = pools[poolIndex % pools.length];
+        if (pool.length > 0) {
+            finalQuestions.push(pool.shift()!);
+        }
+        poolIndex++;
+        // Hentikan jika semua pool sudah kosong tapi soal masih kurang
+        if (pools.every(p => p.length === 0) && poolIndex > pools.length * 2) break;
+     }
+
+
+    return this.shuffleArray(finalQuestions.slice(0, settings.totalQuestions));
   }
 
   private shuffleArray<T>(array: T[]): T[] {
     let currentIndex = array.length, randomIndex;
-    while (currentIndex != 0) {
+    while (currentIndex !== 0) {
       randomIndex = Math.floor(Math.random() * currentIndex);
       currentIndex--;
       [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];

@@ -1,4 +1,5 @@
-import Phaser from 'phaser';
+// File: src/client/scenes/PilihModeScene.ts
+// Hapus import Phaser
 import { BaseScene } from './BaseScene'; // Import BaseScene
 
 export class PilihModeScene extends BaseScene { // extends BaseScene
@@ -6,56 +7,53 @@ export class PilihModeScene extends BaseScene { // extends BaseScene
     super('PilihModeScene');
   }
 
+  // Hapus override karena create() tidak di-override, hanya memanggil super
   create() {
-    super.create();
+    super.create(); // Panggil create() dari BaseScene
     this.draw();
   }
 
-  draw() {
-    super.draw();
+  // Tambahkan override
+  public override draw() {
+    super.draw(); // Panggil draw dari BaseScene untuk membersihkan + tombol umum
 
-    this.add.text(this.centerX, this.scale.height * 0.2, 'Pilih Mode', {
+    this.add.text(this.centerX, this.scale.height * 0.2, 'Pilih Mode', { // [cite: 30]
         fontSize: '48px',
         color: '#000000',
+        stroke: '#ffffff',
+        strokeThickness: 4
       }).setOrigin(0.5);
 
-    // Tombol Belajar
+    // Tombol Belajar [cite: 31]
     this.createButton(this.scale.height * 0.45, 'Belajar', () => {
       this.scene.start('PilihKesulitanScene', { mode: 'belajar' });
     });
 
-    // Tombol Survive
+    // Tombol Survive [cite: 32]
     this.createButton(this.scale.height * 0.6, 'Survive', () => {
       this.scene.start('PilihKesulitanScene', { mode: 'survive' });
     });
 
-    // Tombol Kembali
-    this.createBackButton();
+    // Tombol Kembali sudah dihandle BaseScene
   }
 
+  // Fungsi createButton sama seperti di MainMenuScene, bisa dipindahkan ke BaseScene jika mau
   createButton(y: number, text: string, onClick: () => void) {
     const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
-    const buttonRect = this.add.rectangle(this.centerX, y, buttonWidth, buttonHeight)
-      .setFillStyle(0xffffff)
+    const buttonRect = this.add.rectangle(0, 0, buttonWidth, buttonHeight) // Posisi 0,0 relatif terhadap container
+      .setFillStyle(0xffffff, 0.9)
       .setStrokeStyle(2, 0x000000);
-    this.add.text(this.centerX, y, text, {
+    const buttonText = this.add.text(buttonWidth / 2, buttonHeight / 2, text, { // Posisi tengah relatif terhadap container
         fontSize: '24px',
         color: '#000000',
       }).setOrigin(0.5);
-    buttonRect.setInteractive({ useHandCursor: true })
+
+    const container = this.add.container(this.centerX - buttonWidth / 2, y - buttonHeight / 2, [buttonRect, buttonText]);
+    container.setSize(buttonWidth, buttonHeight);
+    container.setInteractive({ useHandCursor: true })
       .on('pointerdown', onClick)
-      .on('pointerover', () => buttonRect.setFillStyle(0xeeeeee))
-      .on('pointerout', () => buttonRect.setFillStyle(0xffffff));
-  }
-  
-  createBackButton() {
-    // Tombol kembali di pojok kiri atas
-    const backButton = this.add.text(this.scale.width * 0.1, this.scale.height * 0.1, '< Kembali', {
-        fontSize: '24px',
-        color: '#000000',
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-      
-    backButton.on('pointerdown', () => this.scene.start('MainMenuScene'));
+      .on('pointerover', () => buttonRect.setFillStyle(0xeeeeee, 0.9))
+      .on('pointerout', () => buttonRect.setFillStyle(0xffffff, 0.9));
   }
 }
