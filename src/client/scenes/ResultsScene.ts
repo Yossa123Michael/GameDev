@@ -1,6 +1,7 @@
-import Phaser from 'phaser';
 
-export class ResultsScene extends Phaser.Scene {
+import { BaseScene } from './BaseScene'; // Import BaseScene
+
+export class ResultsScene extends BaseScene { // extends BaseScene
   private finalScore: number = 0;
 
   constructor() {
@@ -11,20 +12,25 @@ export class ResultsScene extends Phaser.Scene {
     this.finalScore = data.score;
   }
 
-  create() {
-    this.cameras.main.setBackgroundColor('#ffffff');
+  public override create() {
+    super.create();
+    this.draw();
+  }
 
-    this.add.text(this.scale.width / 2, 150, 'Kuis Selesai!', {
+  public override draw() {
+    super.draw();
+
+    this.add.text(this.centerX, this.scale.height * 0.3, 'Kuis Selesai!', {
         fontSize: '48px',
         color: '#000',
       }).setOrigin(0.5);
     
-    this.add.text(this.scale.width / 2, 250, `Skor Akhir Anda: ${this.finalScore}`, {
+    this.add.text(this.centerX, this.scale.height * 0.45, `Skor Akhir Anda: ${this.finalScore}`, {
         fontSize: '32px',
         color: '#000',
       }).setOrigin(0.5);
 
-    const playAgainButton = this.add.text(this.scale.width / 2, 400, 'Main Lagi', {
+    const playAgainButton = this.add.text(this.centerX, this.scale.height * 0.6, 'Main Lagi', {
         fontSize: '32px',
         color: '#fff',
         backgroundColor: '#007bff',
@@ -32,7 +38,6 @@ export class ResultsScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
     playAgainButton.setInteractive({ useHandCursor: true });
-    // Kembali ke Menu Utama, bukan langsung ke Game
     playAgainButton.on('pointerdown', () => this.scene.start('MainMenuScene'));
   }
 }

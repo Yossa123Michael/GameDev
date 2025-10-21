@@ -21,10 +21,9 @@ const config: Phaser.Types.Core.GameConfig = {
 
   // --- INI BAGIAN PERBAIKANNYA ---
   scale: {
-    mode: Phaser.Scale.FIT, // Otomatis sesuaikan ukuran (fit)
-    autoCenter: Phaser.Scale.CENTER_BOTH, // Posisikan di tengah
-    width: 800,  // Ini jadi ukuran 'logis' game Anda
-    height: 600, // Ini jadi ukuran 'logis' game Anda
+    mode: Phaser.Scale.RESIZE, // <-- GANTI KE RESIZE
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // Kita tidak menentukan width/height, biarkan Phaser mengisi parent
   },
   // --- AKHIR PERBAIKAN ---
 

@@ -1,45 +1,51 @@
 import Phaser from 'phaser';
+import { BaseScene } from './BaseScene'; // Import BaseScene
 
-export class MainMenuScene extends Phaser.Scene {
+export class MainMenuScene extends BaseScene { // extends BaseScene
   constructor() {
     super('MainMenuScene');
   }
 
   create() {
-    this.cameras.main.setBackgroundColor('#ffffff'); // Latar putih
+    super.create(); // Panggil create() dari BaseScene
+    this.draw();    // Panggil draw() pertama kali
+  }
 
-    // Judul Game [cite: 14]
-    this.add.text(this.scale.width / 2, 100, 'Road Knowledge', {
+  // Fungsi create() diubah menjadi draw()
+  draw() {
+    super.draw(); // Bersihkan layar
+
+    // Judul Game - Posisi dinamis
+    this.add.text(this.centerX, this.scale.height * 0.2, 'Road Knowledge', {
         fontSize: '48px',
         color: '#000000',
         align: 'center',
       }).setOrigin(0.5);
 
-    // Tombol-tombol [cite: 15-19]
-    this.createButton(200, 'Start Test', () => this.scene.start('PilihModeScene'));
-    this.createButton(280, 'Leaderboard', () => this.scene.start('LeaderboardScene'));
-    this.createButton(360, 'Achievement', () => this.scene.start('AchievementScene'));
-    this.createButton(440, 'Option', () => this.scene.start('OptionScene'));
-    this.createButton(520, 'Credit', () => this.scene.start('CreditScene'));
+    // Tombol-tombol - Posisi dinamis
+    // Gunakan persentase dari tinggi layar
+    this.createButton(this.scale.height * 0.4, 'Start Test', () => this.scene.start('PilihModeScene'));
+    this.createButton(this.scale.height * 0.5, 'Leaderboard', () => this.scene.start('LeaderboardScene'));
+    this.createButton(this.scale.height * 0.6, 'Achievement', () => this.scene.start('AchievementScene'));
+    this.createButton(this.scale.height * 0.7, 'Option', () => this.scene.start('OptionScene'));
+    this.createButton(this.scale.height * 0.8, 'Credit', () => this.scene.start('CreditScene'));
   }
 
-  // Fungsi helper untuk membuat tombol agar tidak berulang
+  // Fungsi helper untuk membuat tombol
   createButton(y: number, text: string, onClick: () => void) {
-    const buttonWidth = 350;
+    // Lebar tombol 80% dari lebar layar
+    const buttonWidth = this.scale.width * 0.8; 
     const buttonHeight = 60;
 
-    // Kotak tombol
-    const buttonRect = this.add.rectangle(this.scale.width / 2, y, buttonWidth, buttonHeight)
+    const buttonRect = this.add.rectangle(this.centerX, y, buttonWidth, buttonHeight)
       .setFillStyle(0xffffff)
-      .setStrokeStyle(2, 0x000000); // Putih dengan garis hitam
+      .setStrokeStyle(2, 0x000000);
 
-    // Teks tombol
-    const buttonText = this.add.text(this.scale.width / 2, y, text, {
+    const buttonText = this.add.text(this.centerX, y, text, {
         fontSize: '24px',
         color: '#000000',
       }).setOrigin(0.5);
 
-    // Interaksi
     buttonRect.setInteractive({ useHandCursor: true })
       .on('pointerdown', onClick)
       .on('pointerover', () => buttonRect.setFillStyle(0xeeeeee))

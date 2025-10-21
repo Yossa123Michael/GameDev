@@ -1,25 +1,31 @@
 import Phaser from 'phaser';
+import { BaseScene } from './BaseScene'; // Import BaseScene
 
-export class PilihModeScene extends Phaser.Scene {
+export class PilihModeScene extends BaseScene { // extends BaseScene
   constructor() {
     super('PilihModeScene');
   }
 
   create() {
-    this.cameras.main.setBackgroundColor('#ffffff');
+    super.create();
+    this.draw();
+  }
 
-    this.add.text(this.scale.width / 2, 100, 'Pilih Mode', {
+  draw() {
+    super.draw();
+
+    this.add.text(this.centerX, this.scale.height * 0.2, 'Pilih Mode', {
         fontSize: '48px',
         color: '#000000',
       }).setOrigin(0.5);
 
-    // Tombol Belajar [cite: 25]
-    this.createButton(250, 'Belajar', () => {
+    // Tombol Belajar
+    this.createButton(this.scale.height * 0.45, 'Belajar', () => {
       this.scene.start('PilihKesulitanScene', { mode: 'belajar' });
     });
 
-    // Tombol Survive [cite: 26]
-    this.createButton(350, 'Survive', () => {
+    // Tombol Survive
+    this.createButton(this.scale.height * 0.6, 'Survive', () => {
       this.scene.start('PilihKesulitanScene', { mode: 'survive' });
     });
 
@@ -28,13 +34,12 @@ export class PilihModeScene extends Phaser.Scene {
   }
 
   createButton(y: number, text: string, onClick: () => void) {
-    // Implementasi tombol yang sama dengan MainMenuScene...
-    const buttonWidth = 350;
+    const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
-    const buttonRect = this.add.rectangle(this.scale.width / 2, y, buttonWidth, buttonHeight)
+    const buttonRect = this.add.rectangle(this.centerX, y, buttonWidth, buttonHeight)
       .setFillStyle(0xffffff)
       .setStrokeStyle(2, 0x000000);
-    this.add.text(this.scale.width / 2, y, text, {
+    this.add.text(this.centerX, y, text, {
         fontSize: '24px',
         color: '#000000',
       }).setOrigin(0.5);
@@ -45,10 +50,11 @@ export class PilihModeScene extends Phaser.Scene {
   }
   
   createBackButton() {
-    const backButton = this.add.text(50, 50, '< Kembali', {
+    // Tombol kembali di pojok kiri atas
+    const backButton = this.add.text(this.scale.width * 0.1, this.scale.height * 0.1, '< Kembali', {
         fontSize: '24px',
         color: '#000000',
-      }).setInteractive({ useHandCursor: true });
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
       
     backButton.on('pointerdown', () => this.scene.start('MainMenuScene'));
   }
