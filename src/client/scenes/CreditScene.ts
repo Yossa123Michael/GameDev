@@ -1,55 +1,76 @@
 // File: src/client/scenes/CreditScene.ts
-// Hapus import Phaser
 import { BaseScene } from './BaseScene';
 
-// Ganti nama kelas menjadi CreditScene
 export class CreditScene extends BaseScene {
   constructor() {
-    // Ganti key scene menjadi 'CreditScene'
     super('CreditScene');
   }
 
-  // Tambahkan override
   public override create() {
     super.create();
-    this.draw();
+    // this.draw() dipanggil oleh BaseScene
   }
 
-  // Tambahkan override
   public override draw() {
+    // Panggil super.draw() PERTAMA
     super.draw();
+    if (!this.sceneContentGroup) return;
 
-    // Ganti judul sesuai PDF [cite: 123]
-    this.add.text(this.centerX, this.scale.height * 0.2, 'Credit', {
-        fontSize: '48px',
-        color: '#000',
-        stroke: '#fff',
-        strokeThickness: 4,
+    // Hapus listener scene input
+    this.input.off(Phaser.Input.Events.POINTER_DOWN);
+    this.input.off(Phaser.Input.Events.POINTER_MOVE);
+    this.input.off(Phaser.Input.Events.GAME_OUT);
+    this.input.setDefaultCursor('default');
+
+    // Buat elemen teks dan tambahkan ke group
+    const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Credit', {
+        fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
       }).setOrigin(0.5);
-
-    // Tambahkan teks credit placeholder sesuai PDF [cite: 124-137]
-    const styleHeader = { fontSize: '24px', color: '#222', backgroundColor: '#ffffffaa', padding: 5 };
-    const styleItem = { fontSize: '18px', color: '#000', backgroundColor: '#ffffffaa', padding: 3 };
+    this.sceneContentGroup.add(title);
+      
+    const styleHeader = { fontSize: '24px', color: '#222', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } };
+    const styleItem = { fontSize: '18px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 3, y: 3 } };
     let yPos = this.scale.height * 0.35;
 
-    this.add.text(this.centerX, yPos, 'Creator', styleHeader).setOrigin(0.5);
+    const h1 = this.add.text(this.centerX, yPos, 'Creator', styleHeader).setOrigin(0.5);
     yPos += 40;
-    this.add.text(this.centerX, yPos, '- Yossa Michael', styleItem).setOrigin(0.5); // [cite: 125] (Contoh)
+    const i1 = this.add.text(this.centerX, yPos, '- Yossa Michael', styleItem).setOrigin(0.5);
     yPos += 60;
+    this.sceneContentGroup.add(h1);
+    this.sceneContentGroup.add(i1);
 
-    this.add.text(this.centerX, yPos, 'Backsound Artist', styleHeader).setOrigin(0.5); // [cite: 126]
+    const h2 = this.add.text(this.centerX, yPos, 'Backsound Artist', styleHeader).setOrigin(0.5);
     yPos += 40;
-    this.add.text(this.centerX, yPos, '- Artist BGM 1', styleItem).setOrigin(0.5); // [cite: 127] (Contoh)
+    const i2 = this.add.text(this.centerX, yPos, '- Artist BGM 1', styleItem).setOrigin(0.5);
     yPos += 30;
-    this.add.text(this.centerX, yPos, '- Artist BGM 2', styleItem).setOrigin(0.5); // [cite: 128] (Contoh)
+    const i3 = this.add.text(this.centerX, yPos, '- Artist BGM 2', styleItem).setOrigin(0.5);
     yPos += 60;
+    this.sceneContentGroup.add(h2);
+    this.sceneContentGroup.add(i2);
+    this.sceneContentGroup.add(i3);
 
-    // ... Tambahkan bagian lain seperti Animation Artist [cite: 130], Sound Effect Artist [cite: 135] jika perlu ...
-     this.add.text(this.centerX, yPos, 'Sound Effect Artist', styleHeader).setOrigin(0.5);
+    const h3 = this.add.text(this.centerX, yPos, 'Sound Effect Artist', styleHeader).setOrigin(0.5);
      yPos += 40;
-     this.add.text(this.centerX, yPos, '- Artist SFX', styleItem).setOrigin(0.5); // [cite: 136] (Contoh)
+    const i4 = this.add.text(this.centerX, yPos, '- Artist SFX', styleItem).setOrigin(0.5);
+    this.sceneContentGroup.add(h3);
+    this.sceneContentGroup.add(i4);
 
-
-    // Tombol kembali dan Musik sudah ada di BaseScene [cite: 121, 122]
+     // Listener untuk tombol musik/kembali
+     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+        let onUtilButton = false;
+        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
+        if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
+        this.input.setDefaultCursor(onUtilButton ? 'pointer' : 'default');
+     });
+     this.input.on(Phaser.Input.Events.GAME_OUT, () => {
+         this.input.setDefaultCursor('default');
+     });
   }
+  
+  // Helper cek pointer
+  public isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
+        if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text)) { return false; }
+        const bounds = gameObject.getBounds();
+        return bounds.contains(pointer.x, pointer.y);
+    }
 }

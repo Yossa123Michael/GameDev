@@ -1,34 +1,30 @@
 // File: src/client/main.ts
-// (Tidak perlu import Phaser jika tidak dipakai langsung di sini)
+import Phaser from 'phaser';
 
 // Import semua scene
+import { BaseScene } from './scenes/BaseScene'; // Pastikan BaseScene diimpor jika diperlukan (meskipun tidak ada di array scene)
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { PilihModeScene } from './scenes/PilihModeScene';
 import { PilihKesulitanScene } from './scenes/PilihKesulitanScene';
 import { Game } from './scenes/GameScene';
 import { ResultsScene } from './scenes/ResultsScene';
-
-// Ganti import scene placeholder ke nama kelas yang benar
 import { LeaderboardScene } from './scenes/LeaderboardScene';
-import { AchievementScene } from './scenes/AchievementScene'; // Ganti nama kelas
-import { OptionScene } from './scenes/OptionScene';          // Ganti nama kelas
-import { CreditScene } from './scenes/CreditScene';          // Ganti nama kelas
-
-// Pastikan Phaser diimpor jika config membutuhkannya
-import Phaser from 'phaser';
+import { AchievementScene } from './scenes/AchievementScene';
+import { OptionScene } from './scenes/OptionScene';
+import { CreditScene } from './scenes/CreditScene';
 
 // Konfigurasi game
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
-  // backgroundColor: '#ffffff', // Dihapus karena BaseScene menambahkan background image
+  // backgroundColor: '#ffffff', // Tidak perlu jika BaseScene punya background
 
   scale: {
-    mode: Phaser.Scale.RESIZE,
+    mode: Phaser.Scale.RESIZE, // Mode resize agar menyesuaikan layar
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
 
-  // Pastikan semua scene terdaftar dengan nama kelas yang benar
+  // Daftarkan semua scene
   scene: [
     MainMenuScene,
     PilihModeScene,
@@ -36,9 +32,9 @@ const config: Phaser.Types.Core.GameConfig = {
     Game,
     ResultsScene,
     LeaderboardScene,
-    AchievementScene, // Nama kelas sudah diganti
-    OptionScene,      // Nama kelas sudah diganti
-    CreditScene,      // Nama kelas sudah diganti
+    AchievementScene,
+    OptionScene,
+    CreditScene,
   ],
 };
 

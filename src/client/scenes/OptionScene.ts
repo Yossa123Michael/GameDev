@@ -1,58 +1,76 @@
 // File: src/client/scenes/OptionScene.ts
-// Hapus import Phaser
 import { BaseScene } from './BaseScene';
 
-// Ganti nama kelas menjadi OptionScene
 export class OptionScene extends BaseScene {
   constructor() {
-    // Ganti key scene menjadi 'OptionScene'
     super('OptionScene');
   }
 
-  // Tambahkan override
   public override create() {
     super.create();
-    this.draw();
+    // this.draw() dipanggil oleh BaseScene
   }
 
- // Tambahkan override
   public override draw() {
+    // Panggil super.draw() PERTAMA
     super.draw();
+    if (!this.sceneContentGroup) return;
 
-    // Ganti judul sesuai PDF [cite: 113]
-    this.add.text(this.centerX, this.scale.height * 0.2, 'Option', {
-        fontSize: '48px',
-        color: '#000',
-        stroke: '#fff',
-        strokeThickness: 4,
+    // Hapus listener scene input
+    this.input.off(Phaser.Input.Events.POINTER_DOWN);
+    this.input.off(Phaser.Input.Events.POINTER_MOVE);
+    this.input.off(Phaser.Input.Events.GAME_OUT);
+    this.input.setDefaultCursor('default');
+
+    // Buat elemen teks dan tambahkan ke group
+    const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Option', {
+        fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
       }).setOrigin(0.5);
+    this.sceneContentGroup.add(title);
 
-    // Tambahkan placeholder untuk opsi sesuai PDF [cite: 114-119]
     let yPos = this.scale.height * 0.35;
     const spacing = this.scale.height * 0.1;
 
-    this.createOptionItem(yPos, 'Bahasa: Indonesia'); // [cite: 114]
+    // Helper akan menambahkan item ke group
+    this.createOptionItem(yPos, 'Bahasa: Indonesia');
     yPos += spacing;
-    this.createOptionItem(yPos, 'Mode Theme: Light'); // [cite: 115, 116]
+    this.createOptionItem(yPos, 'Mode Theme: Light');
     yPos += spacing;
-    this.createOptionItem(yPos, 'Sound Effect: On'); // [cite: 117]
+    this.createOptionItem(yPos, 'Sound Effect: On');
     yPos += spacing;
-    this.createOptionItem(yPos, 'Backsound: On'); // [cite: 118]
+    this.createOptionItem(yPos, 'Backsound: On');
     yPos += spacing;
-    this.createOptionItem(yPos, 'Remove Account'); // [cite: 119]
+    this.createOptionItem(yPos, 'Remove Account');
 
-    // Tombol kembali dan Musik sudah ada di BaseScene [cite: 112, 120]
+     // Listener untuk tombol musik/kembali
+     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+        let onUtilButton = false;
+        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
+        if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
+        this.input.setDefaultCursor(onUtilButton ? 'pointer' : 'default');
+     });
+     this.input.on(Phaser.Input.Events.GAME_OUT, () => {
+         this.input.setDefaultCursor('default');
+     });
   }
 
-  // Helper untuk membuat item opsi (hanya teks saat ini)
+  // Helper ini langsung MENAMBAHKAN ke group
   createOptionItem(y: number, text: string) {
-    this.add.text(this.centerX, y, text, {
-      fontSize: '24px',
-      color: '#000',
-      backgroundColor: '#ffffffaa',
-      padding: { x: 15, y: 8 },
-      fixedWidth: this.scale.width * 0.7 // Beri lebar tetap
+    if (!this.sceneContentGroup) return;
+
+    const itemText = this.add.text(this.centerX, y, text, {
+      fontSize: '24px', color: '#000', backgroundColor: '#ffffffaa',
+      padding: { x: 15, y: 8 }, fixedWidth: this.scale.width * 0.7
     }).setOrigin(0.5);
-    // TODO: Tambahkan interaktivitas jika diperlukan
+    
+    this.sceneContentGroup.add(itemText);
+    // TODO: Tambahkan interaktivitas jika perlu (gunakan pola listener scene)
   }
+  
+  // Helper cek pointer
+  public isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
+        if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text)) { return false; }
+        const bounds = gameObject.getBounds();
+        return bounds.contains(pointer.x, pointer.y);
+    }
 }

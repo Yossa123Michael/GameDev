@@ -1,12 +1,23 @@
-html, body {
+/* File: src/client/style.css */
+
+/* Reset margin dan padding default browser */
+* {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden; /* Mencegah scrollbar */
-  background-color: #000000;
+  box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Sembunyikan scrollbar */
+  background-color: #000; /* Latar belakang hitam jika canvas tidak penuh */
+}
+
+/* Pastikan div 'game' (parent dari canvas) mengisi seluruh layar 
+  dan tidak menghalangi input.
+*/
 #game {
   width: 100%;
   height: 100%;
@@ -15,6 +26,11 @@ html, body {
   align-items: center;
 }
 
+/* Pastikan canvas itu sendiri tidak memiliki event pointer yang aneh.
+  Ini akan memastikan canvas menerima semua klik.
+*/
 canvas {
-  display: block;
+  width: 100%;
+  height: 100%;
+  /* Hapus 'pointer-events: none;' jika ada */
 }

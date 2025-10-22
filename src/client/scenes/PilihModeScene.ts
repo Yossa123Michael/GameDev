@@ -1,59 +1,120 @@
 // File: src/client/scenes/PilihModeScene.ts
-// Hapus import Phaser
-import { BaseScene } from './BaseScene'; // Import BaseScene
+import { BaseScene } from './BaseScene';
 
-export class PilihModeScene extends BaseScene { // extends BaseScene
+export class PilihModeScene extends BaseScene {
   constructor() {
     super('PilihModeScene');
   }
 
-  // Hapus override karena create() tidak di-override, hanya memanggil super
-  create() {
-    super.create(); // Panggil create() dari BaseScene
-    this.draw();
+  public override create() {
+    super.create();
+    // this.draw() dipanggil oleh BaseScene
   }
 
-  // Tambahkan override
   public override draw() {
-    super.draw(); // Panggil draw dari BaseScene untuk membersihkan + tombol umum
+    // 1. Panggil super.draw() PERTAMA
+    super.draw();
+    if (!this.sceneContentGroup) return;
 
-    this.add.text(this.centerX, this.scale.height * 0.2, 'Pilih Mode', { // [cite: 30]
-        fontSize: '48px',
-        color: '#000000',
-        stroke: '#ffffff',
-        strokeThickness: 4
+    // 2. HAPUS LISTENER LAMA DARI SCENE
+    this.input.off(Phaser.Input.Events.POINTER_DOWN);
+    this.input.off(Phaser.Input.Events.POINTER_MOVE);
+    this.input.off(Phaser.Input.Events.GAME_OUT);
+    this.input.setDefaultCursor('default');
+
+    // 3. Buat elemen dan tambahkan ke group
+    const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Pilih Mode', {
+        fontSize: '48px', color: '#000000', stroke: '#ffffff', strokeThickness: 4
       }).setOrigin(0.5);
+    this.sceneContentGroup.add(title);
 
-    // Tombol Belajar [cite: 31]
-    this.createButton(this.scale.height * 0.45, 'Belajar', () => {
-      this.scene.start('PilihKesulitanScene', { mode: 'belajar' });
+    // Buat tombol
+    const belajarButton = this.createButton(this.scale.height * 0.45, 'Belajar');
+    const surviveButton = this.createButton(this.scale.height * 0.6, 'Survive');
+
+    // Tambahkan tombol ke group
+    this.sceneContentGroup.add(belajarButton);
+    this.sceneContentGroup.add(surviveButton);
+    
+    // Simpan tombol dalam array
+    const buttons = [
+        { container: belajarButton, action: () => this.scene.start('PilihKesulitanScene', { mode: 'belajar' }) },
+        { container: surviveButton, action: () => this.scene.start('PilihKesulitanScene', { mode: 'survive' }) }
+    ];
+
+    // 4. Daftarkan LISTENER PADA SCENE
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+        buttons.forEach(btn => {
+            if (this.isPointerOver(pointer, btn.container)) {
+                const rect = btn.container.getAt(0) as Phaser.GameObjects.Rectangle;
+                rect.setFillStyle(0xdddddd, 0.9);
+                this.time.delayedCall(100, btn.action);
+            }
+        });
     });
 
-    // Tombol Survive [cite: 32]
-    this.createButton(this.scale.height * 0.6, 'Survive', () => {
-      this.scene.start('PilihKesulitanScene', { mode: 'survive' });
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+        let onButton = false;
+        buttons.forEach(btn => {
+            const rect = btn.container.getAt(0) as Phaser.GameObjects.Rectangle;
+            if (this.isPointerOver(pointer, btn.container)) {
+                onButton = true;
+                if (!btn.container.getData('isHovered')) {
+                   rect.setFillStyle(0xeeeeee, 0.9);
+                   btn.container.setData('isHovered', true);
+                }
+            } else {
+                 if (btn.container.getData('isHovered')) {
+                    rect.setFillStyle(0xffffff, 0.9);
+                    btn.container.setData('isHovered', false);
+                 }
+            }
+        });
+        this.input.setDefaultCursor(onButton ? 'pointer' : 'default');
     });
 
-    // Tombol Kembali sudah dihandle BaseScene
+    this.input.on(Phaser.Input.Events.GAME_OUT, () => {
+         buttons.forEach(btn => {
+             const rect = btn.container.getAt(0) as Phaser.GameObjects.Rectangle;
+             rect.setFillStyle(0xffffff, 0.9);
+             btn.container.setData('isHovered', false);
+         });
+         this.input.setDefaultCursor('default');
+    });
   }
 
-  // Fungsi createButton sama seperti di MainMenuScene, bisa dipindahkan ke BaseScene jika mau
-  createButton(y: number, text: string, onClick: () => void) {
+  // Helper cek pointer (sama seperti MainMenuScene)
+  private isPointerOver(pointer: Phaser.Input.Pointer, container: Phaser.GameObjects.Container): boolean {
+      const bounds = container.getBounds();
+      return bounds.contains(pointer.x, pointer.y);
+  }
+
+  // --- SALIN FUNGSI createButton DARI MainMenuScene.ts KE SINI ---
+  // (Tanpa parameter onClick)
+  createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
-    const buttonRect = this.add.rectangle(0, 0, buttonWidth, buttonHeight) // Posisi 0,0 relatif terhadap container
-      .setFillStyle(0xffffff, 0.9)
-      .setStrokeStyle(2, 0x000000);
-    const buttonText = this.add.text(buttonWidth / 2, buttonHeight / 2, text, { // Posisi tengah relatif terhadap container
-        fontSize: '24px',
-        color: '#000000',
-      }).setOrigin(0.5);
 
-    const container = this.add.container(this.centerX - buttonWidth / 2, y - buttonHeight / 2, [buttonRect, buttonText]);
+    const buttonRect = this.add.rectangle(
+        0, 0, buttonWidth, buttonHeight, 0xffffff, 0.9
+    )
+    .setStrokeStyle(2, 0x000000)
+    .setOrigin(0, 0);
+
+    const buttonText = this.add.text(
+        buttonWidth / 2, buttonHeight / 2, text,
+        { fontSize: '24px', color: '#000000' }
+    ).setOrigin(0.5);
+
+    const container = this.add.container(
+        this.centerX - buttonWidth / 2,
+        y - buttonHeight / 2
+    );
     container.setSize(buttonWidth, buttonHeight);
-    container.setInteractive({ useHandCursor: true })
-      .on('pointerdown', onClick)
-      .on('pointerover', () => buttonRect.setFillStyle(0xeeeeee, 0.9))
-      .on('pointerout', () => buttonRect.setFillStyle(0xffffff, 0.9));
+    container.add([buttonRect, buttonText]);
+    container.setName(text);
+    container.setData('isHovered', false);
+
+    return container;
   }
 }
