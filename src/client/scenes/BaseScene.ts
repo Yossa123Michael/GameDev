@@ -4,23 +4,20 @@ import Phaser from 'phaser';
 export class BaseScene extends Phaser.Scene {
   protected centerX!: number;
   protected centerY!: number;
-  // Ganti tipe dari Text ke Image
+  // --- GANTI TIPE DARI TEXT KE IMAGE ---
   protected musicButton!: Phaser.GameObjects.Image;
   protected backButton!: Phaser.GameObjects.Image;
   protected sceneContentGroup!: Phaser.GameObjects.Group;
 
   // Status musik (true = on, false = off)
-  protected isMusicOn: boolean = true; // Asumsi awal musik nyala
+  protected static isMusicOn: boolean = true; // Gunakan static agar state tersimpan antar scene
 
   preload() {
-    this.load.image('background', 'assets/Background.png'); // Pastikan nama file background benar
-    this.load.image('logo', 'assets/Asset 2.png'); // Pastikan nama file logo benar
-
-    // --- Muat Aset Tombol Baru ---
-    this.load.image('music_on', 'assets/music_on.png');   // Ganti nama file jika perlu
-    this.load.image('music_off', 'assets/music_off.png'); // Ganti nama file jika perlu
-    this.load.image('back_arrow', 'assets/back_arrow.png'); // Ganti nama file jika perlu
-    // --- Akhir Muat Aset ---
+    this.load.image('music_on', 'assets/Asset 5.png');   // PASTIKAN NAMA FILE SAMA
+    this.load.image('music_off', 'assets/Asset 4.png'); // PASTIKAN NAMA FILE SAMA
+    this.load.image('back_arrow', 'assets/Asset 3.png'); // PASTIKAN NAMA FILE SAMA
+    this.load.image('background', 'assets/Background.png'); // GANTI NAMA FILE JIKA PERLU
+    this.load.image('logo', 'assets/Asset 7.png'); // GANTI NAMA FILE JIKA PERLU
   }
 
   create() {
@@ -51,7 +48,6 @@ export class BaseScene extends Phaser.Scene {
     }, [], this);
   }
 
-  // Parameter gameSize sudah benar
   private handleResize(gameSize: Phaser.Structs.Size) {
     this.updateCenter();
 
@@ -77,15 +73,16 @@ export class BaseScene extends Phaser.Scene {
 
    // --- REVISI: Membuat Tombol Gambar ---
    protected createCommonButtons(backTargetScene: string = 'MainMenuScene') {
-     // Posisi lebih ke pojok (misal 30px dari tepi)
-     const iconMargin = 30;
-     const iconScale = 0.1; // Skala ikon (sesuaikan agar pas)
+     // Posisi lebih ke pojok (misal 5% dari tepi)
+     const iconMarginHorizontal = this.scale.width * 0.05;
+     const iconMarginVertical = this.scale.height * 0.05;
+     const iconScale = 0.5; // Skala ikon (sesuaikan agar pas)
 
      // Tombol Musik
-     const musicButtonX = this.scale.width - iconMargin;
-     const musicButtonY = iconMargin;
+     const musicButtonX = this.scale.width - iconMarginHorizontal;
+     const musicButtonY = iconMarginVertical;
      // Tentukan ikon awal berdasarkan state
-     const initialMusicTexture = this.isMusicOn ? 'music_on' : 'music_off';
+     const initialMusicTexture = BaseScene.isMusicOn ? 'music_on' : 'music_off';
 
      this.musicButton = this.add.image(musicButtonX, musicButtonY, initialMusicTexture)
        .setOrigin(1, 0) // Origin kanan-atas
@@ -93,17 +90,17 @@ export class BaseScene extends Phaser.Scene {
        .setInteractive({ useHandCursor: true });
 
      this.musicButton.on(Phaser.Input.Events.POINTER_DOWN, () => {
-       this.isMusicOn = !this.isMusicOn; // Toggle state
+       BaseScene.isMusicOn = !BaseScene.isMusicOn; // Toggle state static
        // Ganti tekstur gambar
-       this.musicButton.setTexture(this.isMusicOn ? 'music_on' : 'music_off');
-       console.log('Music Toggled:', this.isMusicOn);
+       this.musicButton.setTexture(BaseScene.isMusicOn ? 'music_on' : 'music_off');
+       console.log('Music Toggled:', BaseScene.isMusicOn);
        // TODO: Implementasikan logika Mute/Unmute Audio Sebenarnya
      });
 
      // Tombol Kembali (jika bukan Main Menu)
      if (this.scene.key !== 'MainMenuScene') {
-        const backButtonX = iconMargin;
-        const backButtonY = iconMargin; // Y sama dengan tombol musik
+        const backButtonX = iconMarginHorizontal;
+        const backButtonY = iconMarginVertical; // Y sama dengan tombol musik
         let finalTarget = backTargetScene; // Ambil default
 
          this.backButton = this.add.image(backButtonX, backButtonY, 'back_arrow')
@@ -112,13 +109,13 @@ export class BaseScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true });
 
          this.backButton.on(Phaser.Input.Events.POINTER_DOWN, () => {
-            // Logika target scene (sudah benar dari sebelumnya)
+            // Logika target scene
             if (this.scene.key === 'PilihModeScene') finalTarget = 'MainMenuScene';
             else if (this.scene.key === 'PilihKesulitanScene') finalTarget = 'PilihModeScene';
             else if (this.scene.key === 'GameScene') finalTarget = 'PilihKesulitanScene';
             else if (this.scene.key === 'ResultsScene') finalTarget = 'MainMenuScene';
+            // Scene lain akan menggunakan backTargetScene (defaultnya MainMenuScene)
 
-            console.log(`Back button clicked, going to: ${finalTarget}`); // Debug
             if (finalTarget === 'PilihKesulitanScene' && (this as any).mode) {
                  this.scene.start(finalTarget, { mode: (this as any).mode });
             } else {
@@ -130,20 +127,14 @@ export class BaseScene extends Phaser.Scene {
 
     // --- REVISI: Reposisi Tombol Gambar ---
     protected repositionCommonButtons() {
-        const iconMargin = 30; // Gunakan margin yang sama
-        const musicButtonX = this.scale.width - iconMargin;
-        const musicButtonY = iconMargin;
-        const backButtonX = iconMargin;
-        const backButtonY = iconMargin;
+        const iconMarginHorizontal = this.scale.width * 0.05;
+        const iconMarginVertical = this.scale.height * 0.05;
 
         if (this.musicButton) {
-            this.musicButton.setPosition(musicButtonX, musicButtonY);
-            // Anda bisa juga menyesuaikan skala lagi jika perlu saat resize
-            // this.musicButton.setScale(...);
+            this.musicButton.setPosition(this.scale.width - iconMarginHorizontal, iconMarginVertical);
         }
         if (this.backButton) {
-            this.backButton.setPosition(backButtonX, backButtonY);
-            // this.backButton.setScale(...);
+            this.backButton.setPosition(iconMarginHorizontal, iconMarginVertical);
         }
     }
 

@@ -1,8 +1,6 @@
 // File: src/client/main.ts
 import Phaser from 'phaser';
-
-// Import semua scene
-import { BaseScene } from './scenes/BaseScene'; // Pastikan BaseScene diimpor jika diperlukan (meskipun tidak ada di array scene)
+// Import semua scene Anda
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { PilihModeScene } from './scenes/PilihModeScene';
 import { PilihKesulitanScene } from './scenes/PilihKesulitanScene';
@@ -13,19 +11,47 @@ import { AchievementScene } from './scenes/AchievementScene';
 import { OptionScene } from './scenes/OptionScene';
 import { CreditScene } from './scenes/CreditScene';
 
-// Konfigurasi game
+// --- TAMBAHKAN SCENE BOOT UNTUK FONT ---
+class BootScene extends Phaser.Scene {
+  constructor() {
+    super('BootScene');
+  }
+
+  preload() {
+    // Muat script WebFont loader
+    this.load.script('webfont', 'https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js');
+  }
+
+  create() {
+    // Muat font Nunito
+    (window as any).WebFont.load({
+      google: {
+        families: ['Nunito:700'] // Muat Nunito bold (700)
+      },
+      active: () => {
+        // Setelah font aktif, mulai MainMenuScene
+        this.scene.start('MainMenuScene');
+      },
+      inactive: () => {
+         // Jika gagal, tetap mulai (akan pakai font default)
+         console.warn('Gagal memuat font Nunito, menggunakan font default.');
+         this.scene.start('MainMenuScene');
+      }
+    });
+  }
+}
+// --- AKHIR TAMBAHAN ---
+
+
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
-  // backgroundColor: '#ffffff', // Tidak perlu jika BaseScene punya background
-
   scale: {
-    mode: Phaser.Scale.RESIZE, // Mode resize agar menyesuaikan layar
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-
-  // Daftarkan semua scene
   scene: [
+    BootScene, // <-- Mulai dari BootScene
     MainMenuScene,
     PilihModeScene,
     PilihKesulitanScene,
@@ -38,5 +64,4 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-// Buat instance game baru
 new Phaser.Game(config);

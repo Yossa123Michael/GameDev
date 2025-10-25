@@ -8,7 +8,7 @@ export class MainMenuScene extends BaseScene {
 
   public override create() {
     super.create();
-    // this.draw() dipanggil oleh BaseScene setelah delay
+    // this.draw() dipanggil oleh BaseScene
   }
 
   public override draw() {
@@ -27,9 +27,9 @@ export class MainMenuScene extends BaseScene {
     const bottomSectionStartY = topSectionHeight;
 
     // 2. Buat LOGO di bagian atas
-    const logoY = topSectionHeight * 0.5;
+    const logoY = topSectionHeight * 0.55; // Sedikit ke bawah
     const logo = this.add.image(this.centerX, logoY, 'logo');
-    const targetWidth = this.scale.width * 0.7;
+    const targetWidth = this.scale.width * 0.8; // Lebar 80%
     const scale = targetWidth / logo.width;
     logo.setScale(scale);
     this.sceneContentGroup.add(logo);
@@ -59,7 +59,6 @@ export class MainMenuScene extends BaseScene {
     this.sceneContentGroup.add(creditButton);
 
     // Simpan tombol untuk listener
-    // PERBAIKAN: Pastikan variabel 'buttons' digunakan
     const buttons = [
         { container: startButton, action: () => this.scene.start('PilihModeScene') },
         { container: leaderboardButton, action: () => this.scene.start('LeaderboardScene') },
@@ -69,117 +68,110 @@ export class MainMenuScene extends BaseScene {
     ];
 
     // 4. Daftarkan Listener Scene
-
-    // Event POINTER_DOWN
-    // PERBAIKAN: Tambahkan '_' jika pointer tidak dipakai atau gunakan 'pointer'
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
-            // Panggil isPointerOver
-            if (this.isPointerOver(pointer, btn.container)) {
+            if (this.isPointerOver(pointer, btn.container)) { // Gunakan isPointerOver baru
                 console.log(`Button "${btn.container.name}" DOWN`);
                 const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
-                // Panggil updateButtonGraphics
-                // PERBAIKAN TYPO: this.updateButtonGraphics
                 this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xdddddd);
                 this.time.delayedCall(100, btn.action);
             }
         });
     });
 
-    // Event POINTER_MOVE (untuk hover)
-    // PERBAIKAN: Tambahkan '_' jika pointer tidak dipakai atau gunakan 'pointer'
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onButton = false;
         buttons.forEach(btn => {
             const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
-            // Panggil isPointerOver
-            if (this.isPointerOver(pointer, btn.container)) {
+            if (this.isPointerOver(pointer, btn.container)) { // Gunakan isPointerOver baru
                 onButton = true;
                 if (!btn.container.getData('isHovered')) {
-                   // Panggil updateButtonGraphics
-                   // PERBAIKAN TYPO: this.updateButtonGraphics
                    this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xeeeeee); // Hover
                    btn.container.setData('isHovered', true);
                 }
             } else {
                  if (btn.container.getData('isHovered')) {
-                    // Panggil updateButtonGraphics
-                    // PERBAIKAN TYPO: this.updateButtonGraphics
                     this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff); // Normal
                     btn.container.setData('isHovered', false);
                  }
             }
         });
-        // Cek juga tombol utilitas
         let onUtilButton = false;
-        // PERBAIKAN: Panggil isPointerOver
-        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
-        // Tombol kembali tidak ada di MainMenuScene
+        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true; // Gunakan isPointerOver baru
         this.input.setDefaultCursor(onButton || onUtilButton ? 'pointer' : 'default');
     });
 
-    // Event GAME_OUT
     this.input.on(Phaser.Input.Events.GAME_OUT, () => {
          buttons.forEach(btn => {
              const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
-             // Panggil updateButtonGraphics
-             // PERBAIKAN TYPO: this.updateButtonGraphics
              this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff); // Normal
              btn.container.setData('isHovered', false);
          });
          this.input.setDefaultCursor('default');
     });
-  } // <-- Akhir dari draw()
+  }
 
-  // Helper cek pointer (sekarang digunakan)
-  // PERBAIKAN: Parameter gameObject digunakan
+  // --- HELPER isPointerOver YANG BARU ---
   private isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
-      if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text || gameObject instanceof Phaser.GameObjects.Image)) {
-          return false;
-      }
-      const bounds = gameObject.getBounds();
-      if (!bounds) return false;
-      return bounds.contains(pointer.x, pointer.y);
-      // PERBAIKAN: Pastikan ada return value
-  } // <-- Akhir dari isPointerOver()
+    if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text || gameObject instanceof Phaser.GameObjects.Image)) {
+        return false;
+    }
 
+    let worldX: number;
+    let worldY: number;
+    let width: number;
+    let height: number;
 
-  // --- FUNGSI createButton (MENGGUNAKAN GRAPHICS) ---
-  // (Parameter y dan text digunakan)
-  // PERBAIKAN: Parameter y dan text digunakan
+    if (gameObject instanceof Phaser.GameObjects.Container) {
+        worldX = gameObject.x;
+        worldY = gameObject.y;
+        width = gameObject.width;
+        height = gameObject.height;
+    } else { // Text atau Image
+        const bounds = gameObject.getBounds();
+        if (!bounds) return false;
+        worldX = bounds.x;
+        worldY = bounds.y;
+        width = bounds.width;
+        height = bounds.height;
+    }
+
+    const hitAreaRect = new Phaser.Geom.Rectangle(worldX, worldY, width, height);
+    return hitAreaRect.contains(pointer.x, pointer.y);
+  }
+  // --- AKHIR HELPER BARU ---
+
+  // Fungsi createButton (tetap sama)
   createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
     const cornerRadius = 20;
 
-    // PERBAIKAN: Definisikan buttonGraphics di sini
     const buttonGraphics = this.add.graphics();
-    // Panggil updateButtonGraphics
     this.updateButtonGraphics(buttonGraphics, buttonWidth, buttonHeight, 0xffffff, 0.9, cornerRadius);
 
     const buttonText = this.add.text(
         buttonWidth / 2, buttonHeight / 2, text,
-        { fontSize: '24px', color: '#000000' }
+        {
+            fontFamily: 'Nunito', // Font Nunito
+            fontSize: '24px',
+            color: '#000000'
+        }
     ).setOrigin(0.5);
 
     const container = this.add.container(
         this.centerX - buttonWidth / 2,
-        y - buttonHeight / 2 // Gunakan parameter y
+        y - buttonHeight / 2
     );
     container.setSize(buttonWidth, buttonHeight);
     container.add([buttonGraphics, buttonText]);
-    container.setName(text); // Gunakan parameter text
+    container.setName(text);
     container.setData('isHovered', false);
 
-    // **TIDAK ADA .setInteractive() di sini**
+    return container;
+  }
 
-    return container; // <-- Pastikan ada return
-  } // <-- Akhir dari createButton()
-
-
-  // --- Helper baru untuk menggambar ulang graphics tombol ---
-  // (Sekarang digunakan)
-  // PERBAIKAN: Hapus deklarasi tipe dari dalam body
+  // Helper updateButtonGraphics (tetap sama)
   private updateButtonGraphics(
       graphics: Phaser.GameObjects.Graphics,
       width: number,
@@ -193,6 +185,5 @@ export class MainMenuScene extends BaseScene {
       graphics.lineStyle(2, 0x000000, 1);
       graphics.fillRoundedRect(0, 0, width, height, cornerRadius);
       graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
-  } // <-- Akhir dari updateButtonGraphics()
-
-} // <-- Akhir dari class MainMenuScene
+  }
+}

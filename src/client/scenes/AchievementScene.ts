@@ -51,9 +51,44 @@ export class AchievementScene extends BaseScene {
   }
   
   // Helper cek pointer
-  public isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
-        if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text)) { return false; }
+  // Helper baru untuk cek pointer (LEBIH ANDAL)
+private isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
+    // Hanya periksa Container atau Text (untuk tombol Result)
+    if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text )) {
+        return false;
+    }
+
+    // Dapatkan posisi X, Y, Lebar, Tinggi gameObject di dunia
+    // Untuk Container, width/height berasal dari setSize()
+    // Untuk Text, kita perlu getBounds() untuk ukuran sebenarnya
+    let worldX: number;
+    let worldY: number;
+    let width: number;
+    let height: number;
+
+    if (gameObject instanceof Phaser.GameObjects.Container) {
+        worldX = gameObject.x; // Posisi container di scene
+        worldY = gameObject.y; // Posisi container di scene
+        width = gameObject.width; // Ukuran dari setSize()
+        height = gameObject.height; // Ukuran dari setSize()
+    } else { // Berarti Text
         const bounds = gameObject.getBounds();
-        return bounds.contains(pointer.x, pointer.y);
+        if (!bounds) return false;
+        worldX = bounds.x; // Posisi batas text di scene
+        worldY = bounds.y; // Posisi batas text di scene
+        width = bounds.width;
+        height = bounds.height;
+    }
+
+    // Buat rectangle manual berdasarkan posisi dan ukuran di dunia
+    const hitAreaRect = new Phaser.Geom.Rectangle(worldX, worldY, width, height);
+
+    /* --- DEBUGGING (bisa dihapus nanti) ---
+    const debugName = (gameObject instanceof Phaser.GameObjects.Container) ? gameObject.name : 'TextButton';
+    console.log(`Pointer: (${pointer.x.toFixed(1)}, ${pointer.y.toFixed(1)}) | ${debugName} HitArea: x:${hitAreaRect.x.toFixed(1)}, y:${hitAreaRect.y.toFixed(1)}, w:${hitAreaRect.width.toFixed(1)}, h:${hitAreaRect.height.toFixed(1)} | Contains: ${hitAreaRect.contains(pointer.x, pointer.y)}`);
+    // --- Akhir Debugging --- */
+
+    // Cek apakah pointer ada di dalam rectangle manual ini
+    return hitAreaRect.contains(pointer.x, pointer.y);
     }
 }
