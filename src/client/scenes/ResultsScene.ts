@@ -18,48 +18,49 @@ export class ResultsScene extends BaseScene {
   }
 
   public override draw() {
-    // 1. Panggil super.draw() PERTAMA
+    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
-
-    // 2. HAPUS LISTENER LAMA DARI SCENE
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    // 3. Buat elemen dan tambahkan ke group
+    // 2. Buat elemen (Font Nunito)
     const title = this.add.text(this.centerX, this.scale.height * 0.3, 'Kuis Selesai!', {
+        fontFamily: 'Nunito', // <-- FONT
         fontSize: '48px', color: '#000000', stroke: '#ffffff', strokeThickness: 4
       }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
     const scoreText = this.add.text(this.centerX, this.scale.height * 0.45, `Skor Akhir Anda: ${this.finalScore}`, {
+        fontFamily: 'Nunito', // <-- FONT
         fontSize: '32px', color: '#000000', stroke: '#ffffff', strokeThickness: 2
       }).setOrigin(0.5);
     this.sceneContentGroup.add(scoreText);
 
-    // Buat tombol (menggunakan helper yang sudah interaktif)
+    // Buat tombol (Gaya biru, Font Nunito)
     const btn1 = this.createStyledButton(this.centerX, this.scale.height * 0.6, 'Main Lagi');
     const btn2 = this.createStyledButton(this.centerX, this.scale.height * 0.7, 'Leaderboard');
-    
+
     // Tambahkan tombol ke group
     this.sceneContentGroup.add(btn1);
     this.sceneContentGroup.add(btn2);
-    
-    // Simpan tombol dalam array
+
     const buttons = [
         { button: btn1, action: () => this.scene.start('MainMenuScene') },
         { button: btn2, action: () => this.scene.start('LeaderboardScene') }
     ];
 
-    // 4. Daftarkan LISTENER PADA SCENE
+    // 3. Listener Scene
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
-            // Helper ini menggunakan Text, jadi pakai getBounds()
-            if (this.isPointerOver(pointer, btn.button)) {
+            if (this.isPointerOver(pointer, btn.button)) { // Pakai isPointerOver dari BaseScene
                  btn.button.setBackgroundColor('#004499'); // Warna klik
-                 this.time.delayedCall(100, btn.action);
+                 this.time.delayedCall(100, () => {
+                    this.playSound('sfx_click'); // Mainkan SFX
+                    btn.action();
+                 });
             }
         });
     });
@@ -67,7 +68,7 @@ export class ResultsScene extends BaseScene {
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onButton = false;
         buttons.forEach(btn => {
-            if (this.isPointerOver(pointer, btn.button)) {
+            if (this.isPointerOver(pointer, btn.button)) { // Pakai isPointerOver dari BaseScene
                 onButton = true;
                 if (!btn.button.getData('isHovered')) {
                     btn.button.setBackgroundColor('#0056b3'); // Warna hover
@@ -80,7 +81,7 @@ export class ResultsScene extends BaseScene {
                  }
             }
         });
-        // Cek juga tombol musik/kembali
+        // Cek tombol utilitas
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
         if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
@@ -95,27 +96,26 @@ export class ResultsScene extends BaseScene {
          this.input.setDefaultCursor('default');
     });
   }
-  
-   // Helper cek pointer
-   public isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
-        if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text)) {
-             return false;
-        }
-        const bounds = gameObject.getBounds();
-        return bounds.contains(pointer.x, pointer.y);
-    }
 
-   // Helper ini MENGEMBALIKAN Text, TANPA listener klik
+   // Helper createStyledButton (Font Nunito, tanpa listener)
    createStyledButton(x: number, y: number, text: string): Phaser.GameObjects.Text {
      const buttonText = this.add.text(x, y, text, {
+         fontFamily: 'Nunito', // <-- FONT
          fontSize: '32px', color: '#ffffff', backgroundColor: '#007bff',
          padding: { x: 20, y: 10 }, align: 'center'
        }).setOrigin(0.5);
 
-     buttonText.setData('isHovered', false); // State awal hover
-     buttonText.setName(text); // Nama debug
+     buttonText.setData('isHovered', false);
+     buttonText.setName(text);
      // **TIDAK ADA .setInteractive() atau .on() di sini**
 
      return buttonText;
+   }
+   
+   // Helper SFX
+   protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
+       if (!this.sound.mute) {
+           this.sound.play(key, config);
+       }
    }
 }

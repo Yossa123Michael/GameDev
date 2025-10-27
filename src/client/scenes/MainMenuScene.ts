@@ -26,20 +26,20 @@ export class MainMenuScene extends BaseScene {
     const topSectionHeight = this.scale.height * topSectionHeightRatio;
     const bottomSectionStartY = topSectionHeight;
 
-    // 2. Buat LOGO di bagian atas
-    const logoY = topSectionHeight * 0.55; // Sedikit ke bawah
+    // 2. LOGO (Posisi Y sedikit turun, Skala lebih besar)
+    const logoY = topSectionHeight * 0.55; // <-- Sedikit ke bawah
     const logo = this.add.image(this.centerX, logoY, 'logo');
-    const targetWidth = this.scale.width * 0.8; // Lebar 80%
+    const targetWidth = this.scale.width * 0.8; // <-- Ukuran 80%
     const scale = targetWidth / logo.width;
     logo.setScale(scale);
     this.sceneContentGroup.add(logo);
 
-    // 3. Buat Tombol di bagian bawah
+    // 3. Tombol (Gaya Rounded & Font Nunito)
     const buttonCount = 5;
-    const buttonSlotCount = buttonCount + 1;
+    const buttonSlotCount = buttonCount + 1; // Ruang atas/bawah
     const buttonAreaHeight = this.scale.height * bottomSectionHeightRatio;
     const buttonSpacing = buttonAreaHeight / buttonSlotCount;
-    let currentButtonY = bottomSectionStartY + buttonSpacing;
+    let currentButtonY = bottomSectionStartY + buttonSpacing; // Slot pertama
 
     const startButton = this.createButton(currentButtonY, 'Start Test');
     currentButtonY += buttonSpacing;
@@ -70,11 +70,13 @@ export class MainMenuScene extends BaseScene {
     // 4. Daftarkan Listener Scene
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
-            if (this.isPointerOver(pointer, btn.container)) { // Gunakan isPointerOver baru
-                console.log(`Button "${btn.container.name}" DOWN`);
+            if (this.isPointerOver(pointer, btn.container)) { // Pakai isPointerOver dari BaseScene
                 const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
                 this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xdddddd);
-                this.time.delayedCall(100, btn.action);
+                this.time.delayedCall(100, () => {
+                    this.playSound('sfx_click'); // Mainkan SFX
+                    btn.action();
+                });
             }
         });
     });
@@ -83,7 +85,7 @@ export class MainMenuScene extends BaseScene {
         let onButton = false;
         buttons.forEach(btn => {
             const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
-            if (this.isPointerOver(pointer, btn.container)) { // Gunakan isPointerOver baru
+            if (this.isPointerOver(pointer, btn.container)) { // Pakai isPointerOver dari BaseScene
                 onButton = true;
                 if (!btn.container.getData('isHovered')) {
                    this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xeeeeee); // Hover
@@ -96,8 +98,10 @@ export class MainMenuScene extends BaseScene {
                  }
             }
         });
+        // Cek tombol utilitas
         let onUtilButton = false;
-        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true; // Gunakan isPointerOver baru
+        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true; // Pakai isPointerOver dari BaseScene
+        // Tidak ada tombol back di MainMenu
         this.input.setDefaultCursor(onButton || onUtilButton ? 'pointer' : 'default');
     });
 
@@ -109,39 +113,10 @@ export class MainMenuScene extends BaseScene {
          });
          this.input.setDefaultCursor('default');
     });
-  }
+  } // <-- Akhir draw()
 
-  // --- HELPER isPointerOver YANG BARU ---
-  private isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
-    if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text || gameObject instanceof Phaser.GameObjects.Image)) {
-        return false;
-    }
 
-    let worldX: number;
-    let worldY: number;
-    let width: number;
-    let height: number;
-
-    if (gameObject instanceof Phaser.GameObjects.Container) {
-        worldX = gameObject.x;
-        worldY = gameObject.y;
-        width = gameObject.width;
-        height = gameObject.height;
-    } else { // Text atau Image
-        const bounds = gameObject.getBounds();
-        if (!bounds) return false;
-        worldX = bounds.x;
-        worldY = bounds.y;
-        width = bounds.width;
-        height = bounds.height;
-    }
-
-    const hitAreaRect = new Phaser.Geom.Rectangle(worldX, worldY, width, height);
-    return hitAreaRect.contains(pointer.x, pointer.y);
-  }
-  // --- AKHIR HELPER BARU ---
-
-  // Fungsi createButton (tetap sama)
+  // --- Fungsi createButton (Gaya Rounded & Font Nunito) ---
   createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
@@ -150,10 +125,11 @@ export class MainMenuScene extends BaseScene {
     const buttonGraphics = this.add.graphics();
     this.updateButtonGraphics(buttonGraphics, buttonWidth, buttonHeight, 0xffffff, 0.9, cornerRadius);
 
+    // Gunakan font Nunito
     const buttonText = this.add.text(
         buttonWidth / 2, buttonHeight / 2, text,
         {
-            fontFamily: 'Nunito', // Font Nunito
+            fontFamily: 'Nunito', // <-- FONT
             fontSize: '24px',
             color: '#000000'
         }
@@ -161,7 +137,7 @@ export class MainMenuScene extends BaseScene {
 
     const container = this.add.container(
         this.centerX - buttonWidth / 2,
-        y - buttonHeight / 2
+        y - buttonHeight / 2 // y adalah posisi tengah
     );
     container.setSize(buttonWidth, buttonHeight);
     container.add([buttonGraphics, buttonText]);
@@ -169,9 +145,10 @@ export class MainMenuScene extends BaseScene {
     container.setData('isHovered', false);
 
     return container;
-  }
+  } // <-- Akhir createButton()
 
-  // Helper updateButtonGraphics (tetap sama)
+
+  // --- Helper gambar tombol ---
   private updateButtonGraphics(
       graphics: Phaser.GameObjects.Graphics,
       width: number,
@@ -185,5 +162,6 @@ export class MainMenuScene extends BaseScene {
       graphics.lineStyle(2, 0x000000, 1);
       graphics.fillRoundedRect(0, 0, width, height, cornerRadius);
       graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
-  }
-}
+  } // <-- Akhir updateButtonGraphics()
+
+} // <-- Akhir Class

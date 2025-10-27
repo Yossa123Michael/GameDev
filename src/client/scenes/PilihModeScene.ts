@@ -12,43 +12,44 @@ export class PilihModeScene extends BaseScene {
   }
 
   public override draw() {
-    // 1. Panggil super.draw() PERTAMA
+    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
-
-    // 2. HAPUS LISTENER LAMA DARI SCENE
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    // 3. Buat elemen dan tambahkan ke group
+    // 2. Buat elemen (Font Nunito)
     const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Pilih Mode', {
+        fontFamily: 'Nunito', // <-- FONT
         fontSize: '48px', color: '#000000', stroke: '#ffffff', strokeThickness: 4
       }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
-    // Buat tombol
+    // Buat tombol (Gaya Rounded)
     const belajarButton = this.createButton(this.scale.height * 0.45, 'Belajar');
     const surviveButton = this.createButton(this.scale.height * 0.6, 'Survive');
 
     // Tambahkan tombol ke group
     this.sceneContentGroup.add(belajarButton);
     this.sceneContentGroup.add(surviveButton);
-    
-    // Simpan tombol dalam array
+
     const buttons = [
         { container: belajarButton, action: () => this.scene.start('PilihKesulitanScene', { mode: 'belajar' }) },
         { container: surviveButton, action: () => this.scene.start('PilihKesulitanScene', { mode: 'survive' }) }
     ];
 
-    // 4. Daftarkan LISTENER PADA SCENE
+    // 3. Listener Scene
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
-            if (this.isPointerOver(pointer, btn.container)) {
-                const rect = btn.container.getAt(0) as Phaser.GameObjects.Rectangle;
-                rect.setFillStyle(0xdddddd, 0.9);
-                this.time.delayedCall(100, btn.action);
+            if (this.isPointerOver(pointer, btn.container)) { // Pakai isPointerOver dari BaseScene
+                const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
+                this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xdddddd);
+                this.time.delayedCall(100, () => {
+                    this.playSound('sfx_click'); // Mainkan SFX
+                    btn.action();
+                });
             }
         });
     });
@@ -56,90 +57,54 @@ export class PilihModeScene extends BaseScene {
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onButton = false;
         buttons.forEach(btn => {
-            const rect = btn.container.getAt(0) as Phaser.GameObjects.Rectangle;
-            if (this.isPointerOver(pointer, btn.container)) {
+            const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
+            if (this.isPointerOver(pointer, btn.container)) { // Pakai isPointerOver dari BaseScene
                 onButton = true;
                 if (!btn.container.getData('isHovered')) {
-                   rect.setFillStyle(0xeeeeee, 0.9);
+                   this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xeeeeee); // Hover
                    btn.container.setData('isHovered', true);
                 }
             } else {
                  if (btn.container.getData('isHovered')) {
-                    rect.setFillStyle(0xffffff, 0.9);
+                    this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff); // Normal
                     btn.container.setData('isHovered', false);
                  }
             }
         });
-        this.input.setDefaultCursor(onButton ? 'pointer' : 'default');
+        // Cek tombol utilitas
+        let onUtilButton = false;
+        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
+        if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
+        this.input.setDefaultCursor(onButton || onUtilButton ? 'pointer' : 'default');
     });
 
     this.input.on(Phaser.Input.Events.GAME_OUT, () => {
          buttons.forEach(btn => {
-             const rect = btn.container.getAt(0) as Phaser.GameObjects.Rectangle;
-             rect.setFillStyle(0xffffff, 0.9);
+             const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
+             this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff); // Normal
              btn.container.setData('isHovered', false);
          });
          this.input.setDefaultCursor('default');
     });
   }
 
-  // Helper cek pointer (sama seperti MainMenuScene)
-  // Helper baru untuk cek pointer (LEBIH ANDAL)
-private isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
-    // Hanya periksa Container atau Text (untuk tombol Result)
-    if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text )) {
-        return false;
-    }
-
-    // Dapatkan posisi X, Y, Lebar, Tinggi gameObject di dunia
-    // Untuk Container, width/height berasal dari setSize()
-    // Untuk Text, kita perlu getBounds() untuk ukuran sebenarnya
-    let worldX: number;
-    let worldY: number;
-    let width: number;
-    let height: number;
-
-    if (gameObject instanceof Phaser.GameObjects.Container) {
-        worldX = gameObject.x; // Posisi container di scene
-        worldY = gameObject.y; // Posisi container di scene
-        width = gameObject.width; // Ukuran dari setSize()
-        height = gameObject.height; // Ukuran dari setSize()
-    } else { // Berarti Text
-        const bounds = gameObject.getBounds();
-        if (!bounds) return false;
-        worldX = bounds.x; // Posisi batas text di scene
-        worldY = bounds.y; // Posisi batas text di scene
-        width = bounds.width;
-        height = bounds.height;
-    }
-
-    // Buat rectangle manual berdasarkan posisi dan ukuran di dunia
-    const hitAreaRect = new Phaser.Geom.Rectangle(worldX, worldY, width, height);
-
-    /* --- DEBUGGING (bisa dihapus nanti) ---
-    const debugName = (gameObject instanceof Phaser.GameObjects.Container) ? gameObject.name : 'TextButton';
-    console.log(`Pointer: (${pointer.x.toFixed(1)}, ${pointer.y.toFixed(1)}) | ${debugName} HitArea: x:${hitAreaRect.x.toFixed(1)}, y:${hitAreaRect.y.toFixed(1)}, w:${hitAreaRect.width.toFixed(1)}, h:${hitAreaRect.height.toFixed(1)} | Contains: ${hitAreaRect.contains(pointer.x, pointer.y)}`);
-    // --- Akhir Debugging --- */
-
-    // Cek apakah pointer ada di dalam rectangle manual ini
-    return hitAreaRect.contains(pointer.x, pointer.y);
-}
-
-  // --- SALIN FUNGSI createButton DARI MainMenuScene.ts KE SINI ---
-  // (Tanpa parameter onClick)
+  // --- Fungsi createButton (Gaya Rounded & Font Nunito) ---
   createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
+    const cornerRadius = 20;
 
-    const buttonRect = this.add.rectangle(
-        0, 0, buttonWidth, buttonHeight, 0xffffff, 0.9
-    )
-    .setStrokeStyle(2, 0x000000)
-    .setOrigin(0, 0);
+    const buttonGraphics = this.add.graphics();
+    this.updateButtonGraphics(buttonGraphics, buttonWidth, buttonHeight, 0xffffff, 0.9, cornerRadius);
 
+    // Gunakan font Nunito
     const buttonText = this.add.text(
         buttonWidth / 2, buttonHeight / 2, text,
-        { fontSize: '24px', color: '#000000' }
+        {
+            fontFamily: 'Nunito', // <-- FONT
+            fontSize: '24px',
+            color: '#000000'
+        }
     ).setOrigin(0.5);
 
     const container = this.add.container(
@@ -147,10 +112,33 @@ private isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObje
         y - buttonHeight / 2
     );
     container.setSize(buttonWidth, buttonHeight);
-    container.add([buttonRect, buttonText]);
+    container.add([buttonGraphics, buttonText]);
     container.setName(text);
     container.setData('isHovered', false);
 
     return container;
+  }
+
+  // --- Helper gambar tombol ---
+  private updateButtonGraphics(
+      graphics: Phaser.GameObjects.Graphics,
+      width: number,
+      height: number,
+      fillColor: number,
+      alpha: number = 0.9,
+      cornerRadius: number = 20
+  ) {
+      graphics.clear();
+      graphics.fillStyle(fillColor, alpha);
+      graphics.lineStyle(2, 0x000000, 1);
+      graphics.fillRoundedRect(0, 0, width, height, cornerRadius);
+      graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
+  }
+
+  // Helper SFX (salin dari BaseScene jika perlu, atau panggil super.playSound)
+  protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
+      if (!this.sound.mute) {
+          this.sound.play(key, config);
+      }
   }
 }

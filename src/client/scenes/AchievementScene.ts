@@ -8,37 +8,34 @@ export class AchievementScene extends BaseScene {
 
   public override create() {
     super.create();
-    // this.draw() dipanggil oleh BaseScene
   }
 
   public override draw() {
-    // Panggil super.draw() PERTAMA
+    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
-
-    // Hapus listener scene input
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
-    
-    // Buat elemen teks dan tambahkan ke group
+
+    // 2. Buat elemen (Font Nunito)
     const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Achievement', {
-        fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
+        fontFamily: 'Nunito', fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
       }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
-    const cat1 = this.add.text(this.centerX, this.centerY - 50, 'Kategori 1: [ ] [ ] [ ]', { fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
-    const cat2 = this.add.text(this.centerX, this.centerY + 0, 'Kategori 2: [ ] [ ] [ ]', { fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
-    const cat3 = this.add.text(this.centerX, this.centerY + 50, 'Kategori 3: [ ] [ ] [ ]', { fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
-    const soon = this.add.text(this.centerX, this.centerY + 100, '(Fitur segera hadir)', { fontSize: '16px', color: '#555', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
+    const cat1 = this.add.text(this.centerX, this.centerY - 50, 'Kategori 1: [ ] [ ] [ ]', { fontFamily: 'Nunito', fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
+    const cat2 = this.add.text(this.centerX, this.centerY + 0, 'Kategori 2: [ ] [ ] [ ]', { fontFamily: 'Nunito', fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
+    const cat3 = this.add.text(this.centerX, this.centerY + 50, 'Kategori 3: [ ] [ ] [ ]', { fontFamily: 'Nunito', fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
+    const soon = this.add.text(this.centerX, this.centerY + 100, '(Fitur segera hadir)', { fontFamily: 'Nunito', fontSize: '16px', color: '#555', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
 
     this.sceneContentGroup.add(cat1);
     this.sceneContentGroup.add(cat2);
     this.sceneContentGroup.add(cat3);
     this.sceneContentGroup.add(soon);
 
-     // Listener untuk tombol musik/kembali
+     // 3. Listener HANYA untuk tombol musik/kembali
      this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
@@ -49,46 +46,4 @@ export class AchievementScene extends BaseScene {
          this.input.setDefaultCursor('default');
      });
   }
-  
-  // Helper cek pointer
-  // Helper baru untuk cek pointer (LEBIH ANDAL)
-private isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
-    // Hanya periksa Container atau Text (untuk tombol Result)
-    if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text )) {
-        return false;
-    }
-
-    // Dapatkan posisi X, Y, Lebar, Tinggi gameObject di dunia
-    // Untuk Container, width/height berasal dari setSize()
-    // Untuk Text, kita perlu getBounds() untuk ukuran sebenarnya
-    let worldX: number;
-    let worldY: number;
-    let width: number;
-    let height: number;
-
-    if (gameObject instanceof Phaser.GameObjects.Container) {
-        worldX = gameObject.x; // Posisi container di scene
-        worldY = gameObject.y; // Posisi container di scene
-        width = gameObject.width; // Ukuran dari setSize()
-        height = gameObject.height; // Ukuran dari setSize()
-    } else { // Berarti Text
-        const bounds = gameObject.getBounds();
-        if (!bounds) return false;
-        worldX = bounds.x; // Posisi batas text di scene
-        worldY = bounds.y; // Posisi batas text di scene
-        width = bounds.width;
-        height = bounds.height;
-    }
-
-    // Buat rectangle manual berdasarkan posisi dan ukuran di dunia
-    const hitAreaRect = new Phaser.Geom.Rectangle(worldX, worldY, width, height);
-
-    /* --- DEBUGGING (bisa dihapus nanti) ---
-    const debugName = (gameObject instanceof Phaser.GameObjects.Container) ? gameObject.name : 'TextButton';
-    console.log(`Pointer: (${pointer.x.toFixed(1)}, ${pointer.y.toFixed(1)}) | ${debugName} HitArea: x:${hitAreaRect.x.toFixed(1)}, y:${hitAreaRect.y.toFixed(1)}, w:${hitAreaRect.width.toFixed(1)}, h:${hitAreaRect.height.toFixed(1)} | Contains: ${hitAreaRect.contains(pointer.x, pointer.y)}`);
-    // --- Akhir Debugging --- */
-
-    // Cek apakah pointer ada di dalam rectangle manual ini
-    return hitAreaRect.contains(pointer.x, pointer.y);
-    }
 }
