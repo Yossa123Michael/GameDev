@@ -27,7 +27,7 @@ export class BaseScene extends Phaser.Scene {
     this.cameras.main.setViewport(0, 0, this.scale.width, this.scale.height);
 
     this.add.image(this.centerX, this.centerY, 'background')
-        .setName('background_base').setDisplaySize(this.scale.width, this.scale.height).setDepth(-1);
+        .setName('background_base').setDisplaySize(this.scale.width, this.scale.height).setDepth(-2);
 
     this.sceneContentGroup = this.add.group().setName('sceneContentGroup_base');
 
