@@ -11,15 +11,15 @@ export class BaseScene extends Phaser.Scene {
   protected static isMusicOn: boolean = true;
 
   preload() {
-    this.load.image('background', 'assets/Asset 8.png'); // Sesuai file Anda
-    this.load.image('logo', 'assets/Asset 7.png'); // Sesuai file Anda
-    this.load.image('music_on', 'assets/Asset 5.png');   // Sesuai file Anda
-    this.load.image('music_off', 'assets/Asset 4.png'); // Sesuai file Anda
-    this.load.image('back_arrow', 'assets/Asset 3.png'); // Sesuai file Anda
-    this.load.audio('bgm', 'assets/backsound.wav'); // Route 66 Blues - Loop
-    this.load.audio('sfx_click', 'assets/click.mp3');       // https://pixabay.com/sound-effects/computer-mouse-click-352734/
-    this.load.audio('sfx_correct', 'assets/sounds/correct.wav');     // Ganti nama file jika perlu
-    this.load.audio('sfx_incorrect', 'assets/sounds/incorrect.wav');
+    this.load.image('background', 'assets/Images/Asset 8.png'); // Sesuai file Anda
+    this.load.image('logo', 'assets/Images/Asset 7.png'); // Sesuai file Anda
+    this.load.image('music_on', 'assets/Images/Asset 5.png');   // Sesuai file Anda
+    this.load.image('music_off', 'assets/Images/Asset 4.png'); // Sesuai file Anda
+    this.load.image('back_arrow', 'assets/Images/Asset 3.png'); // Sesuai file Anda
+    this.load.audio('bgm', 'assets/Sounds/Backsound.wav'); // Route 66 Blues - Loop
+    this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');       // https://pixabay.com/sound-effects/computer-mouse-click-352734/
+    this.load.audio('sfx_correct', 'assets/Sounds/Right.mp3');     // https://pixabay.com/sound-effects/correct-356013/
+    this.load.audio('sfx_incorrect', 'assets/Sounds/Wrong.mp3'); //https://pixabay.com/sound-effects/buzzer-or-wrong-answer-20582/
   }
 
   create() {

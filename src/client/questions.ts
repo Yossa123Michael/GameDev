@@ -1,4 +1,3 @@
-// Tipe data untuk setiap pertanyaan
 export interface Question {
   question: string;
   options: string[];

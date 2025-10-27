@@ -1,7 +1,5 @@
 // File: src/client/main.ts
 import Phaser from 'phaser';
-// Import scene LAINNYA
-// import { BootScene } from './scenes/BootScene'; // <-- HAPUS BARIS INI
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { PilihModeScene } from './scenes/PilihModeScene';
 import { PilihKesulitanScene } from './scenes/PilihKesulitanScene';
@@ -29,10 +27,12 @@ class BootScene extends Phaser.Scene {
       },
       active: () => {
         console.log('Font Nunito loaded, starting MainMenuScene...');
+        // Setelah font aktif, mulai MainMenuScene
         this.scene.start('MainMenuScene');
       },
       inactive: () => {
          console.warn('Gagal memuat font Nunito, menggunakan font default.');
+         // Jika gagal, tetap mulai
          this.scene.start('MainMenuScene');
       }
     });
@@ -42,7 +42,7 @@ class BootScene extends Phaser.Scene {
 
 
 const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.CANVAS, // Paksa Canvas
+  type: Phaser.CANVAS,
   parent: 'game',
   scale: {
     mode: Phaser.Scale.RESIZE,
@@ -52,7 +52,7 @@ const config: Phaser.Types.Core.GameConfig = {
     disableWebAudio: false
   },
   scene: [
-    BootScene, // Mulai dari BootScene yang didefinisikan di atas
+    BootScene,
     MainMenuScene,
     PilihModeScene,
     PilihKesulitanScene,
