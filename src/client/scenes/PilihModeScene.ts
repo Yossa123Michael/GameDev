@@ -136,7 +136,7 @@ export class PilihModeScene extends BaseScene {
   }
 
   // Helper SFX (salin dari BaseScene jika perlu, atau panggil super.playSound)
-  protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
+  protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
       if (!this.sound.mute) {
           this.sound.play(key, config);
       }

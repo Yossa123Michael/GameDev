@@ -39,23 +39,31 @@ export class PilihKesulitanScene extends BaseScene {
       }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
-    // Perhitungan jarak tombol (Pendekatan Slot Sederhana)
+    // --- PERBAIKAN PERHITUNGAN JARAK TOMBOL (PENDEKATAN SLOT) ---
     const buttonTexts = ['Mudah', 'Menengah', 'Sulit', 'Pro'];
     const buttonCount = buttonTexts.length;
-    // const buttonHeight = 60; // <-- HAPUS BARIS INI (tidak dipakai di draw)
 
+    // Tentukan area vertikal untuk tombol (misal, mulai dari 28% hingga 95% layar)
     const buttonAreaStartY = this.scale.height * 0.28;
     const buttonAreaEndY = this.scale.height * 0.95;
     const buttonAreaHeight = buttonAreaEndY - buttonAreaStartY;
+
+    // Bagi area yang tersedia menjadi slot sebanyak jumlah tombol + 1
+    // (Memberi jarak di atas tombol pertama dan di bawah tombol terakhir)
     const totalSlots = buttonCount + 1;
     const slotHeight = buttonAreaHeight / totalSlots;
-    let currentSlotCenterY = buttonAreaStartY + (slotHeight / 2);
+
+    // Posisi Y tengah untuk slot pertama
+    const firstButtonCenterY = buttonAreaStartY + (slotHeight / 2);
+    // --- AKHIR PERBAIKAN PERHITUNGAN ---
+
 
     const buttons: { container: Phaser.GameObjects.Container, action: () => void }[] = [];
 
     // Buat tombol dan tempatkan di tengah slot masing-masing
     buttonTexts.forEach((text, index) => {
-        const buttonCenterY = currentSlotCenterY + (index * slotHeight);
+        // Posisi Y dihitung berdasarkan indeks
+        const buttonCenterY = firstButtonCenterY + (index * slotHeight); // <-- INI LOGIKA JARAK
         const difficultyKey = text.toLowerCase() as DifficultyKey;
 
         const buttonContainer = this.createButton(buttonCenterY, text);
@@ -66,6 +74,7 @@ export class PilihKesulitanScene extends BaseScene {
         });
     });
 
+
     // 3. Listener Scene (Kode ini tetap sama)
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
@@ -73,7 +82,7 @@ export class PilihKesulitanScene extends BaseScene {
                 const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
                 this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xdddddd);
                 this.time.delayedCall(100, () => {
-                     this.playSound('sfx_click');
+                     this.playSound('sfx_click'); // Mainkan SFX
                      btn.action();
                 });
             }
@@ -97,6 +106,7 @@ export class PilihKesulitanScene extends BaseScene {
                  }
             }
         });
+        // Cek tombol utilitas
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
         if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
@@ -121,10 +131,11 @@ export class PilihKesulitanScene extends BaseScene {
   // --- Fungsi createButton (Gaya Rounded & Font Nunito) ---
   createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
-    const buttonHeight = 60; // Nilai tinggi tetap dipakai di sini
+    const buttonHeight = 60; // Pastikan ini konsisten
     const cornerRadius = 20;
 
     const buttonGraphics = this.add.graphics();
+    // Panggil updateButtonGraphics
     this.updateButtonGraphics(buttonGraphics, buttonWidth, buttonHeight, 0xffffff, 0.9, cornerRadius);
 
     const buttonText = this.add.text(
@@ -164,14 +175,10 @@ export class PilihKesulitanScene extends BaseScene {
       graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
   } // <-- Akhir updateButtonGraphics()
 
-  // --- Helper SFX (Tambahkan override) ---
-  protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) { // <-- TAMBAHKAN override
+  // Helper SFX (salin dari BaseScene jika perlu, atau panggil super.playSound)
+  protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
       // Panggil implementasi dari BaseScene (jika ada logika tambahan di sana)
       super.playSound(key, config);
-      // Atau, jika tidak ada logika tambahan di BaseScene, cukup:
-      // if (!this.sound.mute) {
-      //     this.sound.play(key, config);
-      // }
   } // <-- Akhir playSound()
 
 } // <-- Akhir Class
