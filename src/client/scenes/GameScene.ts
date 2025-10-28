@@ -46,22 +46,11 @@ export class Game extends BaseScene {
     super('GameScene');
   }
 
-  init(data: { mode: string; difficulty: DifficultyKey }) {
-    this.mode = data.mode;
-    this.difficulty = data.difficulty;
-    // Reset state
-    this.currentQuestionIndex = 0; this.score = 0; this.remainingTime = 0; this.lives = 0; this.timerEvent = null; this.timerText = null; this.scoreText = null; this.livesText = null; this.questionText = null; this.feedbackText = null; this.activeOptionButtons = []; this.isDrawing = false;
-  }
-  public override init(data: { mode?: string; difficulty?: DifficultyKey }) {
+  public init (data: { mode?: string; difficulty?: DifficultyKey }) {
   // Simpan mode jika dikirim
   if (data.mode) {
     this.mode = data.mode;
-  } else {
-    // Jika tidak ada mode, pilih fallback (opsional)
-    // console.warn('GameScene.init: mode tidak diberikan, memakai default "normal"');
-    // this.mode = 'normal';
   }
-
   // Simpan difficulty jika dikirim; kalau tidak, pakai fallback 'mudah'
   if (data.difficulty) {
     this.difficulty = data.difficulty;
@@ -70,8 +59,24 @@ export class Game extends BaseScene {
     this.difficulty = 'mudah';
   }
 
+  // Reset state (sama seperti yang sebelumnya di init awal)
+  this.currentQuestionIndex = 0;
+  this.score = 0;
+  this.remainingTime = 0;
+  this.lives = 0;
+  if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
+  this.timerEvent = null;
+  this.timerText = null;
+  this.scoreText = null;
+  this.livesText = null;
+  this.questionText = null;
+  this.feedbackText = null;
+  this.activeOptionButtons = [];
+  this.isDrawing = false;
+
   console.log(`GameScene.init -> mode: ${this.mode}, difficulty: ${this.difficulty}`);
 }
+  
   public override create() {
     console.log("GameScene create starting...");
     const settings = this.difficultySettings[this.difficulty];
