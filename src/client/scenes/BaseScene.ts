@@ -7,66 +7,84 @@ export class BaseScene extends Phaser.Scene {
   protected musicButton!: Phaser.GameObjects.Image; // Gambar
   protected backButton!: Phaser.GameObjects.Image; // Gambar
   protected sceneContentGroup!: Phaser.GameObjects.Group;
-  protected static backgroundMusic: Phaser.Sound.BaseSound | null = null;
+
   protected static isMusicOn: boolean = true;
+  protected static backgroundMusic: Phaser.Sound.BaseSound | null = null;
 
   preload() {
-    this.load.image('background', 'assets/Images/Asset 8.png'); // Sesuai file Anda
-    this.load.image('logo', 'assets/Images/Asset 7.png'); // Sesuai file Anda
-    this.load.image('music_on', 'assets/Images/Asset 5.png');   // Sesuai file Anda
-    this.load.image('music_off', 'assets/Images/Asset 4.png'); // Sesuai file Anda
-    this.load.image('back_arrow', 'assets/Images/Asset 3.png'); // Sesuai file Anda
-    this.load.audio('bgm', 'assets/Sounds/Backsound.wav'); // Route 66 Blues - Loop
-    this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');       // https://pixabay.com/sound-effects/computer-mouse-click-352734/
-    this.load.audio('sfx_correct', 'assets/Sounds/Right.mp3');     // https://pixabay.com/sound-effects/correct-356013/
-    this.load.audio('sfx_incorrect', 'assets/Sounds/Wrong.mp3'); //https://pixabay.com/sound-effects/buzzer-or-wrong-answer-20582/
+    console.log("BaseScene preload starting...");
+
+    // --- Muat Aset Gambar (Sesuai Repositori Anda) ---
+    this.load.image('background', 'assets/Images/Asset 8.png');
+    this.load.image('logo', 'assets/Images/Asset 7.png'); // Path dari subfolder PNG
+    this.load.image('music_on', 'assets/Images/Unmute.png');   // Ganti jika nama file beda
+    this.load.image('music_off', 'assets/Images/Mute.png'); // Ganti jika nama file beda
+    this.load.image('back_arrow', 'assets/Images/Back.png');
+
+    // --- Muat Aset Audio (Sesuai Repositori Anda) ---
+    console.log("Loading audio assets...");
+    this.load.audio('bgm', 'assets/Sounds/Backsound.wav');
+    this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');
+    this.load.audio('sfx_correct', 'assets/Sounds/Right.mp3');
+    this.load.audio('sfx_incorrect', 'assets/Sounds/Wrong.mp3');
+    // --- Akhir Muat Audio ---
+
+    console.log("BaseScene preload finished.");
   }
 
   create() {
+    console.log("BaseScene create starting...");
     this.updateCenter();
     this.cameras.main.setViewport(0, 0, this.scale.width, this.scale.height);
 
-    this.add.image(this.centerX, this.centerY, 'background')
-        .setName('background_base').setDisplaySize(this.scale.width, this.scale.height).setDepth(-2);
+    try {
+        this.add.image(this.centerX, this.centerY, 'background')
+            .setName('background_base').setDisplaySize(this.scale.width, this.scale.height).setDepth(-1);
+    } catch (e) {
+        console.error("Gagal membuat background image:", e);
+        this.add.rectangle(this.centerX, this.centerY, this.scale.width, this.scale.height, 0x000000).setOrigin(0.5);
+    }
 
     this.sceneContentGroup = this.add.group().setName('sceneContentGroup_base');
 
     this.scale.on('resize', this.handleResize, this);
 
-    // Listener Context Restored (menggunakan string event)
     this.renderer.on('contextrestored', () => {
         console.log(`WebGL Context Restored for scene: ${this.scene.key}`);
-        this.handleResize(this.scale.gameSize); // Berikan argumen yang benar
+        this.handleResize(this.scale.gameSize);
     });
 
-    // --- Putar Musik Latar (jika belum diputar dan status ON) ---
+    // --- Logika Musik Latar (Sekarang Diaktifkan) ---
     if (!BaseScene.backgroundMusic && BaseScene.isMusicOn) {
-        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 }); // Volume 50%
-        BaseScene.backgroundMusic.play();
-        console.log("Playing background music");
-    } else if (BaseScene.backgroundMusic && !BaseScene.isMusicOn) {
-        // Jika scene reload dan musik seharusnya OFF, pastikan berhenti
-        BaseScene.backgroundMusic.pause();
-    } else if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) {
-         // Jika scene reload dan musik seharusnya ON tapi berhenti
-         BaseScene.backgroundMusic.resume();
-    }
-    // --- Akhir Putar Musik Latar ---
+        if (this.cache.audio.exists('bgm')) {
+            BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 });
+            BaseScene.backgroundMusic.play();
+            console.log("Playing background music");
+        } else { console.warn("Audio key 'bgm' not found."); }
+    } else if (BaseScene.backgroundMusic && !BaseScene.isMusicOn) { BaseScene.backgroundMusic.pause(); }
+    else if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) { BaseScene.backgroundMusic.resume(); }
+    // --- Akhir Logika Musik Latar ---
 
-    // Buat tombol umum (sekarang gambar)
     this.createCommonButtons();
     if (this.musicButton) this.musicButton.setName('musicButton_base');
     if (this.backButton) this.backButton.setName('backButton_base');
 
-    // Panggil draw pertama kali (setelah delay)
+    if (this.musicButton) {
+        try {
+             this.musicButton.setTexture(BaseScene.isMusicOn ? 'music_on' : 'music_off');
+        } catch (e) {
+            console.error("Gagal set tekstur tombol musik:", e);
+        }
+    }
+
     this.time.delayedCall(15, () => {
        if (this.scene.isActive(this.scene.key) && typeof (this as any).draw === 'function') {
          (this as any).draw();
        }
     }, [], this);
+    console.log("BaseScene create finished.");
   }
 
-  // Parameter gameSize sudah benar
   private handleResize(gameSize: Phaser.Structs.Size) {
     this.updateCenter();
     this.cameras.main.setViewport(0, 0, gameSize.width, gameSize.height);
@@ -77,7 +95,7 @@ export class BaseScene extends Phaser.Scene {
       bg.setPosition(this.centerX, this.centerY);
       bg.setDisplaySize(gameSize.width, gameSize.height);
     }
-    this.repositionCommonButtons(); // Panggil reposisi
+    this.repositionCommonButtons();
 
     if (typeof (this as any).draw === 'function') {
       (this as any).draw();
@@ -89,91 +107,84 @@ export class BaseScene extends Phaser.Scene {
     this.centerY = this.scale.height / 2;
   }
 
-   // --- REVISI: Membuat Tombol Gambar ---
    protected createCommonButtons(backTargetScene: string = 'MainMenuScene') {
-     // Posisi ikon (sesuaikan margin dan skala)
-     const iconMarginHorizontal = this.scale.width * 0.05; // 5% dari tepi horizontal
-     const iconMarginVertical = this.scale.height * 0.05; // 5% dari tepi vertikal
-     const iconScale = 0.5; // Skala ikon (coba naikkan jika terlalu kecil)
+     const iconMarginHorizontal = this.scale.width * 0.05;
+     const iconMarginVertical = this.scale.height * 0.05;
+     const iconScale = 0.5; // Sesuaikan skala ikon jika perlu
 
-     // Tombol Musik
+     // Tombol Musik (dengan try-catch)
      const musicButtonX = this.scale.width - iconMarginHorizontal;
      const musicButtonY = iconMarginVertical;
      const initialMusicTexture = BaseScene.isMusicOn ? 'music_on' : 'music_off';
+     try {
+         this.musicButton = this.add.image(musicButtonX, musicButtonY, initialMusicTexture)
+           .setOrigin(1, 0).setScale(iconScale).setInteractive({ useHandCursor: true });
 
-     this.musicButton = this.add.image(musicButtonX, musicButtonY, initialMusicTexture)
-       .setOrigin(1, 0) // Kanan-atas
-       .setScale(iconScale)
-       .setInteractive({ useHandCursor: true });
-
-     this.musicButton.on(Phaser.Input.Events.POINTER_DOWN, () => {
-       BaseScene.isMusicOn = !BaseScene.isMusicOn; // Toggle state static
-       this.musicButton.setTexture(BaseScene.isMusicOn ? 'music_on' : 'music_off'); // Ganti ikon
-       console.log('Music Toggled:', BaseScene.isMusicOn);
-
-       // Logika Mute/Unmute
-       if (BaseScene.backgroundMusic) {
-           if (BaseScene.isMusicOn) {
-               if (!BaseScene.backgroundMusic.isPlaying) { BaseScene.backgroundMusic.resume(); }
-           } else {
-               BaseScene.backgroundMusic.pause();
+         this.musicButton.on(Phaser.Input.Events.POINTER_DOWN, () => {
+           BaseScene.isMusicOn = !BaseScene.isMusicOn;
+           try {
+               this.musicButton.setTexture(BaseScene.isMusicOn ? 'music_on' : 'music_off');
+           } catch(e) { console.error("Gagal set tekstur tombol musik saat klik:", e); }
+           console.log('Music Toggled:', BaseScene.isMusicOn);
+           
+           // Logika Mute/Unmute
+           if (BaseScene.backgroundMusic) {
+               if (BaseScene.isMusicOn) {
+                   if (!BaseScene.backgroundMusic.isPlaying) { BaseScene.backgroundMusic.resume(); }
+               } else {
+                   BaseScene.backgroundMusic.pause();
+               }
+           } else if (BaseScene.isMusicOn && this.cache.audio.exists('bgm')) {
+                BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 });
+                BaseScene.backgroundMusic.play();
            }
-       } else if (BaseScene.isMusicOn) { // Jika belum ada, buat & mainkan
-            BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 });
-            BaseScene.backgroundMusic.play();
-       }
+           this.playSound('sfx_click'); // Mainkan SFX
+         });
+     } catch (e) {
+         console.error("Gagal membuat tombol musik:", e);
+         this.musicButton = this.add.text(musicButtonX, musicButtonY, '[M]', {fontSize: '20px', color: '#fff'}).setOrigin(1,0) as any;
+     }
 
-       this.playSound('sfx_click'); // Mainkan SFX klik
-     });
-
-     // Tombol Kembali
+     // Tombol Kembali (dengan try-catch)
      if (this.scene.key !== 'MainMenuScene') {
         const backButtonX = iconMarginHorizontal;
-        const backButtonY = iconMarginVertical; // Y sama dengan tombol musik
+        const backButtonY = iconMarginVertical;
         let finalTarget = backTargetScene;
+        try {
+             this.backButton = this.add.image(backButtonX, backButtonY, 'back_arrow')
+                .setOrigin(0, 0).setScale(iconScale).setInteractive({ useHandCursor: true });
 
-         this.backButton = this.add.image(backButtonX, backButtonY, 'back_arrow')
-            .setOrigin(0, 0) // Kiri-atas
-            .setScale(iconScale)
-            .setInteractive({ useHandCursor: true });
+             this.backButton.on(Phaser.Input.Events.POINTER_DOWN, () => {
+                this.playSound('sfx_click'); // Mainkan SFX
+                
+                // Pindah scene (delay untuk SFX)
+                this.time.delayedCall(100, () => {
+                    if (this.scene.key === 'PilihModeScene') finalTarget = 'MainMenuScene';
+                    else if (this.scene.key === 'PilihKesulitanScene') finalTarget = 'PilihModeScene';
+                    else if (this.scene.key === 'GameScene') finalTarget = 'PilihKesulitanScene';
+                    else if (this.scene.key === 'ResultsScene') finalTarget = 'MainMenuScene';
 
-         this.backButton.on(Phaser.Input.Events.POINTER_DOWN, () => {
-            this.playSound('sfx_click'); // Mainkan SFX klik
-
-            // Logika pindah scene (delay sedikit)
-            this.time.delayedCall(100, () => {
-                if (this.scene.key === 'PilihModeScene') finalTarget = 'MainMenuScene';
-                else if (this.scene.key === 'PilihKesulitanScene') finalTarget = 'PilihModeScene';
-                else if (this.scene.key === 'GameScene') finalTarget = 'PilihKesulitanScene';
-                else if (this.scene.key === 'ResultsScene') finalTarget = 'MainMenuScene';
-
-                if (finalTarget === 'PilihKesulitanScene' && (this as any).mode) {
-                     this.scene.start(finalTarget, { mode: (this as any).mode });
-                } else {
-                     this.scene.start(finalTarget);
-                }
-            });
-         });
+                    if (finalTarget === 'PilihKesulitanScene' && (this as any).mode) {
+                         this.scene.start(finalTarget, { mode: (this as any).mode });
+                    } else {
+                         this.scene.start(finalTarget);
+                    }
+                });
+             });
+        } catch(e) {
+             console.error("Gagal membuat tombol kembali:", e);
+             this.backButton = this.add.text(backButtonX, backButtonY, '[<]', {fontSize: '20px', color: '#fff'}).setOrigin(0,0) as any;
+        }
      }
    }
 
-    // --- REVISI: Reposisi Tombol Gambar ---
     protected repositionCommonButtons() {
         const iconMarginHorizontal = this.scale.width * 0.05;
         const iconMarginVertical = this.scale.height * 0.05;
-        // const iconScale = 0.5; // Anda bisa set ulang skala di sini jika perlu
-
-        if (this.musicButton) {
-            this.musicButton.setPosition(this.scale.width - iconMarginHorizontal, iconMarginVertical);
-            // this.musicButton.setScale(iconScale);
-        }
-        if (this.backButton) {
-            this.backButton.setPosition(iconMarginHorizontal, iconMarginVertical);
-            // this.backButton.setScale(iconScale);
-        }
+        if (this.musicButton) this.musicButton.setPosition(this.scale.width - iconMarginHorizontal, iconMarginVertical);
+        if (this.backButton) this.backButton.setPosition(iconMarginHorizontal, iconMarginVertical);
     }
 
-  // draw() membersihkan group
   public draw() {
     if (this.sceneContentGroup) {
        this.sceneContentGroup.clear(true, true);
@@ -183,19 +194,26 @@ export class BaseScene extends Phaser.Scene {
     }
   }
 
-  // --- Helper isPointerOver (PENTING ADA DI BASE) ---
+  // --- TAMBAHAN: HELPER isPointerOver ---
   public isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
     if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text || gameObject instanceof Phaser.GameObjects.Image)) {
         return false;
     }
-    let worldX: number, worldY: number, width: number, height: number;
+
+    let worldX: number;
+    let worldY: number;
+    let width: number;
+    let height: number;
+
     if (gameObject instanceof Phaser.GameObjects.Image) {
         const scaleX = gameObject.scaleX * (gameObject.parentContainer ? gameObject.parentContainer.scaleX : 1);
         const scaleY = gameObject.scaleY * (gameObject.parentContainer ? gameObject.parentContainer.scaleY : 1);
         width = gameObject.width * scaleX;
         height = gameObject.height * scaleY;
-        const displayOriginX = width * gameObject.originX;
-        const displayOriginY = height * gameObject.originY;
+        const originX = gameObject.originX;
+        const originY = gameObject.originY;
+        const displayOriginX = width * originX;
+        const displayOriginY = height * originY;
         const wt = gameObject.getWorldTransformMatrix();
         worldX = wt.tx - displayOriginX;
         worldY = wt.ty - displayOriginY;
@@ -212,19 +230,26 @@ export class BaseScene extends Phaser.Scene {
         width = bounds.width;
         height = bounds.height;
     }
+
     const hitAreaRect = new Phaser.Geom.Rectangle(worldX, worldY, width, height);
     return hitAreaRect.contains(pointer.x, pointer.y);
   }
-  // --- Akhir Helper isPointerOver ---
+  // --- AKHIR HELPER isPointerOver ---
 
-  // --- Helper SFX ---
+  // --- TAMBAHAN: HELPER playSound (Sekarang Diaktifkan) ---
   protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
-      // Cek mute global atau state musik BGM (sesuaikan kebutuhan)
-      // if (!this.sound.mute) {
-      if (BaseScene.isMusicOn || !key.startsWith('bgm')) { // Mainkan SFX meskipun BGM mati
-          this.sound.play(key, config);
-      }
+     try {
+         // Cek jika key audio ada sebelum play
+         if (this.cache.audio.exists(key)) {
+             // Mainkan SFX meskipun BGM mati
+             this.sound.play(key, config);
+         } else {
+             console.warn(`Audio key '${key}' not found.`);
+         }
+     } catch (e) {
+         console.error(`Gagal memainkan audio '${key}':`, e);
+     }
   }
-  // --- Akhir Helper SFX ---
+ // --- AKHIR HELPER playSound ---
 
 } // Akhir Class

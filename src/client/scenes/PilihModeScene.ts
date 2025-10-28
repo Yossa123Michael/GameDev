@@ -57,7 +57,11 @@ export class PilihModeScene extends BaseScene {
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onButton = false;
         buttons.forEach(btn => {
+            // Pastikan container dan graphics ada sebelum diakses
+            if (!btn.container || !btn.container.active) return;
             const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
+            if (!graphics) return;
+            
             if (this.isPointerOver(pointer, btn.container)) { // Pakai isPointerOver dari BaseScene
                 onButton = true;
                 if (!btn.container.getData('isHovered')) {
@@ -80,7 +84,9 @@ export class PilihModeScene extends BaseScene {
 
     this.input.on(Phaser.Input.Events.GAME_OUT, () => {
          buttons.forEach(btn => {
+             if (!btn.container || !btn.container.active) return;
              const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
+             if (!graphics) return;
              this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff); // Normal
              btn.container.setData('isHovered', false);
          });
@@ -135,10 +141,9 @@ export class PilihModeScene extends BaseScene {
       graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
   }
 
-  // Helper SFX (salin dari BaseScene jika perlu, atau panggil super.playSound)
+  // --- Helper SFX (Tambahkan override) ---
   protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
-      if (!this.sound.mute) {
-          this.sound.play(key, config);
-      }
+      super.playSound(key, config);
   }
+
 }

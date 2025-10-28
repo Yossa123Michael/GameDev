@@ -39,31 +39,23 @@ export class PilihKesulitanScene extends BaseScene {
       }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
-    // --- PERBAIKAN PERHITUNGAN JARAK TOMBOL (PENDEKATAN SLOT) ---
+    // Perhitungan jarak tombol (Pendekatan Slot Sederhana)
     const buttonTexts = ['Mudah', 'Menengah', 'Sulit', 'Pro'];
     const buttonCount = buttonTexts.length;
+    // const buttonHeight = 60; // <-- HAPUS BARIS INI (Warning TS6133)
 
-    // Tentukan area vertikal untuk tombol (misal, mulai dari 28% hingga 95% layar)
     const buttonAreaStartY = this.scale.height * 0.28;
     const buttonAreaEndY = this.scale.height * 0.95;
     const buttonAreaHeight = buttonAreaEndY - buttonAreaStartY;
-
-    // Bagi area yang tersedia menjadi slot sebanyak jumlah tombol + 1
-    // (Memberi jarak di atas tombol pertama dan di bawah tombol terakhir)
     const totalSlots = buttonCount + 1;
     const slotHeight = buttonAreaHeight / totalSlots;
-
-    // Posisi Y tengah untuk slot pertama
     const firstButtonCenterY = buttonAreaStartY + (slotHeight / 2);
-    // --- AKHIR PERBAIKAN PERHITUNGAN ---
-
 
     const buttons: { container: Phaser.GameObjects.Container, action: () => void }[] = [];
 
     // Buat tombol dan tempatkan di tengah slot masing-masing
     buttonTexts.forEach((text, index) => {
-        // Posisi Y dihitung berdasarkan indeks
-        const buttonCenterY = firstButtonCenterY + (index * slotHeight); // <-- INI LOGIKA JARAK
+        const buttonCenterY = firstButtonCenterY + (index * slotHeight);
         const difficultyKey = text.toLowerCase() as DifficultyKey;
 
         const buttonContainer = this.createButton(buttonCenterY, text);
@@ -74,56 +66,53 @@ export class PilihKesulitanScene extends BaseScene {
         });
     });
 
-
-    // 3. Listener Scene (Kode ini tetap sama)
+    // 3. Listener Scene (Gunakan _pointer untuk hilangkan warning)
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
-            if (this.isPointerOver(pointer, btn.container)) {
+            if (this.isPointerOver(pointer, btn.container)) { // pointer digunakan di sini
                 const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
                 this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xdddddd);
                 this.time.delayedCall(100, () => {
-                     this.playSound('sfx_click'); // Mainkan SFX
+                     this.playSound('sfx_click');
                      btn.action();
                 });
             }
         });
     });
 
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => { // pointer digunakan
         let onButton = false;
         buttons.forEach(btn => {
             const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
-            if (this.isPointerOver(pointer, btn.container)) {
+            if (this.isPointerOver(pointer, btn.container)) { // pointer digunakan
                 onButton = true;
                 if (!btn.container.getData('isHovered')) {
-                   this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xeeeeee); // Hover
+                   this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xeeeeee);
                    btn.container.setData('isHovered', true);
                 }
             } else {
                  if (btn.container.getData('isHovered')) {
-                    this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff); // Normal
+                    this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff);
                     btn.container.setData('isHovered', false);
                  }
             }
         });
-        // Cek tombol utilitas
         let onUtilButton = false;
-        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
-        if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
+        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true; // pointer digunakan
+        if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true; // pointer digunakan
         this.input.setDefaultCursor(onButton || onUtilButton ? 'pointer' : 'default');
     });
 
     this.input.on(Phaser.Input.Events.GAME_OUT, () => {
          buttons.forEach(btn => {
              const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
-             this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff); // Normal
+             this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xffffff);
              btn.container.setData('isHovered', false);
          });
          this.input.setDefaultCursor('default');
     });
   } // <-- Akhir draw()
 
-  // Gunakan tipe DifficultyKey di sini
   startGame(difficulty: DifficultyKey) {
     this.scene.start('GameScene', { mode: this.mode, difficulty: difficulty });
   }
@@ -131,11 +120,10 @@ export class PilihKesulitanScene extends BaseScene {
   // --- Fungsi createButton (Gaya Rounded & Font Nunito) ---
   createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
-    const buttonHeight = 60; // Pastikan ini konsisten
+    const buttonHeight = 60; // Nilai tinggi tetap dipakai di sini
     const cornerRadius = 20;
 
     const buttonGraphics = this.add.graphics();
-    // Panggil updateButtonGraphics
     this.updateButtonGraphics(buttonGraphics, buttonWidth, buttonHeight, 0xffffff, 0.9, cornerRadius);
 
     const buttonText = this.add.text(
@@ -175,9 +163,8 @@ export class PilihKesulitanScene extends BaseScene {
       graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
   } // <-- Akhir updateButtonGraphics()
 
-  // Helper SFX (salin dari BaseScene jika perlu, atau panggil super.playSound)
+  // --- PERBAIKAN: Tambahkan 'override' ---
   protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
-      // Panggil implementasi dari BaseScene (jika ada logika tambahan di sana)
       super.playSound(key, config);
   } // <-- Akhir playSound()
 
