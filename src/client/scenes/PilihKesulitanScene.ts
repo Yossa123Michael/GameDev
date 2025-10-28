@@ -113,10 +113,11 @@ export class PilihKesulitanScene extends BaseScene {
     });
   } // <-- Akhir draw()
 
+  // Single startGame method: logs selection and transitions to GameScene with mode and difficulty
   startGame(difficulty: DifficultyKey) {
-  console.log('PilihKesulitanScene.startGame ->', { mode: this.mode, difficulty });
-  this.scene.start('GameScene', { mode: this.mode, difficulty: difficulty });
-}
+    console.log('PilihKesulitanScene.startGame ->', { mode: this.mode, difficulty });
+    this.scene.start('GameScene', { mode: this.mode, difficulty: difficulty });
+  }
 
   // --- Fungsi createButton (Gaya Rounded & Font Nunito) ---
   createButton(y: number, text: string): Phaser.GameObjects.Container {

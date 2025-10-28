@@ -46,7 +46,9 @@ export class Game extends BaseScene {
     super('GameScene');
   }
 
-  public init (data: { mode?: string; difficulty?: DifficultyKey }) {
+  // Consolidated init method: receives mode and difficulty from PilihKesulitanScene,
+  // applies safe fallback for difficulty, and resets all runtime state.
+  public override init (data: { mode?: string; difficulty?: DifficultyKey }) {
   // Simpan mode jika dikirim
   if (data.mode) {
     this.mode = data.mode;
