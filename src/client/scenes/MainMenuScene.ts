@@ -1,4 +1,3 @@
-// File: src/client/scenes/MainMenuScene.ts
 import { BaseScene } from './BaseScene';
 
 export class MainMenuScene extends BaseScene {
@@ -12,7 +11,6 @@ export class MainMenuScene extends BaseScene {
   }
 
   public override draw() {
-    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
@@ -20,26 +18,24 @@ export class MainMenuScene extends BaseScene {
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    // --- Konstanta Layout ---
+    //Layout
     const topSectionHeightRatio = 0.3125;
     const bottomSectionHeightRatio = 1 - topSectionHeightRatio;
     const topSectionHeight = this.scale.height * topSectionHeightRatio;
     const bottomSectionStartY = topSectionHeight;
-
-    // 2. LOGO (Posisi Y sedikit turun, Skala lebih besar)
-    const logoY = topSectionHeight * 0.55; // <-- Sedikit ke bawah
+    const logoY = topSectionHeight * 0.55; //Sedikit ke bawah
     const logo = this.add.image(this.centerX, logoY, 'logo');
     const targetWidth = this.scale.width * 0.8; // <-- Ukuran 80%
     const scale = targetWidth / logo.width;
     logo.setScale(scale);
     this.sceneContentGroup.add(logo);
 
-    // 3. Tombol (Gaya Rounded & Font Nunito)
+    //Tombol
     const buttonCount = 5;
     const buttonSlotCount = buttonCount + 1; // Ruang atas/bawah
     const buttonAreaHeight = this.scale.height * bottomSectionHeightRatio;
     const buttonSpacing = buttonAreaHeight / buttonSlotCount;
-    let currentButtonY = bottomSectionStartY + buttonSpacing; // Slot pertama
+    let currentButtonY = bottomSectionStartY + buttonSpacing; //Slot pertama
 
     const startButton = this.createButton(currentButtonY, 'Start Test');
     currentButtonY += buttonSpacing;
@@ -51,7 +47,6 @@ export class MainMenuScene extends BaseScene {
     currentButtonY += buttonSpacing;
     const creditButton = this.createButton(currentButtonY, 'Credit');
 
-    // Tambahkan tombol ke group
     this.sceneContentGroup.add(startButton);
     this.sceneContentGroup.add(leaderboardButton);
     this.sceneContentGroup.add(achievementButton);
@@ -67,7 +62,7 @@ export class MainMenuScene extends BaseScene {
         { container: creditButton, action: () => this.scene.start('CreditScene') }
     ];
 
-    // 4. Daftarkan Listener Scene
+    //Listener Scene
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
             if (this.isPointerOver(pointer, btn.container)) { // Pakai isPointerOver dari BaseScene
@@ -98,7 +93,7 @@ export class MainMenuScene extends BaseScene {
                  }
             }
         });
-        // Cek tombol utilitas
+        //tombol utilitas
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true; // Pakai isPointerOver dari BaseScene
         // Tidak ada tombol back di MainMenu
@@ -113,23 +108,21 @@ export class MainMenuScene extends BaseScene {
          });
          this.input.setDefaultCursor('default');
     });
-  } // <-- Akhir draw()
+  }
 
 
-  // --- Fungsi createButton (Gaya Rounded & Font Nunito) ---
+  //Kerjaan createButton (Rounded & Font Nunito)
   createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
     const cornerRadius = 20;
-
     const buttonGraphics = this.add.graphics();
     this.updateButtonGraphics(buttonGraphics, buttonWidth, buttonHeight, 0xffffff, 0.9, cornerRadius);
 
-    // Gunakan font Nunito
     const buttonText = this.add.text(
         buttonWidth / 2, buttonHeight / 2, text,
         {
-            fontFamily: 'Nunito', // <-- FONT
+            fontFamily: 'Nunito',
             fontSize: '24px',
             color: '#000000'
         }
@@ -145,10 +138,10 @@ export class MainMenuScene extends BaseScene {
     container.setData('isHovered', false);
 
     return container;
-  } // <-- Akhir createButton()
+  } //createButton()
 
 
-  // --- Helper gambar tombol ---
+  //Helper gambar tombol
   private updateButtonGraphics(
       graphics: Phaser.GameObjects.Graphics,
       width: number,
@@ -162,6 +155,6 @@ export class MainMenuScene extends BaseScene {
       graphics.lineStyle(2, 0x000000, 1);
       graphics.fillRoundedRect(0, 0, width, height, cornerRadius);
       graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
-  } // <-- Akhir updateButtonGraphics()
+  } //updateButtonGraphics()
 
-} // <-- Akhir Class
+}

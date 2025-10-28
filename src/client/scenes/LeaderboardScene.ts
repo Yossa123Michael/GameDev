@@ -1,4 +1,3 @@
-// File: src/client/scenes/LeaderboardScene.ts
 import { BaseScene } from './BaseScene';
 
 export class LeaderboardScene extends BaseScene {
@@ -11,7 +10,6 @@ export class LeaderboardScene extends BaseScene {
   }
 
   public override draw() {
-    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
@@ -19,7 +17,7 @@ export class LeaderboardScene extends BaseScene {
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    // 2. Buat elemen (Font Nunito)
+    //Font
     const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Leaderboard', {
         fontFamily: 'Nunito', fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
       }).setOrigin(0.5);
@@ -40,7 +38,7 @@ export class LeaderboardScene extends BaseScene {
     this.sceneContentGroup.add(p3);
     this.sceneContentGroup.add(soon);
 
-     // 3. Listener HANYA untuk tombol musik/kembali
+     // 3. Listener HANYA untuk tombol musik dan kembali
      this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;

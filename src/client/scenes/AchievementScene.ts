@@ -1,4 +1,3 @@
-// File: src/client/scenes/AchievementScene.ts
 import { BaseScene } from './BaseScene';
 
 export class AchievementScene extends BaseScene {
@@ -19,7 +18,7 @@ export class AchievementScene extends BaseScene {
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    // 2. Buat elemen (Font Nunito)
+    //Buat elemen Font
     const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Achievement', {
         fontFamily: 'Nunito', fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
       }).setOrigin(0.5);
@@ -35,7 +34,7 @@ export class AchievementScene extends BaseScene {
     this.sceneContentGroup.add(cat3);
     this.sceneContentGroup.add(soon);
 
-     // 3. Listener HANYA untuk tombol musik/kembali
+     //Listener HANYA untuk tombol musik/kembali
      this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;

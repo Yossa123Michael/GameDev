@@ -1,4 +1,3 @@
-// File: src/client/scenes/PilihModeScene.ts
 import { BaseScene } from './BaseScene';
 
 export class PilihModeScene extends BaseScene {
@@ -7,12 +6,10 @@ export class PilihModeScene extends BaseScene {
   }
 
   public override create() {
-    super.create();
-    // this.draw() dipanggil oleh BaseScene
+    super.create();//this.draw() dipanggil oleh BaseScene
   }
 
   public override draw() {
-    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
@@ -20,18 +17,18 @@ export class PilihModeScene extends BaseScene {
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    // 2. Buat elemen (Font Nunito)
+    //Buat elemen Font
     const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Pilih Mode', {
         fontFamily: 'Nunito', // <-- FONT
         fontSize: '48px', color: '#000000', stroke: '#ffffff', strokeThickness: 4
       }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
-    // Buat tombol (Gaya Rounded)
+    //Buat tombol Gaya Rounded
     const belajarButton = this.createButton(this.scale.height * 0.45, 'Belajar');
     const surviveButton = this.createButton(this.scale.height * 0.6, 'Survive');
 
-    // Tambahkan tombol ke group
+    //Tambahkan tombol ke group
     this.sceneContentGroup.add(belajarButton);
     this.sceneContentGroup.add(surviveButton);
 
@@ -40,14 +37,14 @@ export class PilihModeScene extends BaseScene {
         { container: surviveButton, action: () => this.scene.start('PilihKesulitanScene', { mode: 'survive' }) }
     ];
 
-    // 3. Listener Scene
+    //Listener Scene
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
-            if (this.isPointerOver(pointer, btn.container)) { // Pakai isPointerOver dari BaseScene
+            if (this.isPointerOver(pointer, btn.container)) { //Pakai isPointerOver dari BaseScene
                 const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
                 this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xdddddd);
                 this.time.delayedCall(100, () => {
-                    this.playSound('sfx_click'); // Mainkan SFX
+                    this.playSound('sfx_click'); //Play SFX
                     btn.action();
                 });
             }
@@ -75,7 +72,7 @@ export class PilihModeScene extends BaseScene {
                  }
             }
         });
-        // Cek tombol utilitas
+        //Cek tombol utilitas
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
         if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
@@ -94,7 +91,7 @@ export class PilihModeScene extends BaseScene {
     });
   }
 
-  // --- Fungsi createButton (Gaya Rounded & Font Nunito) ---
+  //CreateButton (Rounded & Font)
   createButton(y: number, text: string): Phaser.GameObjects.Container {
     const buttonWidth = this.scale.width * 0.8;
     const buttonHeight = 60;
@@ -103,7 +100,7 @@ export class PilihModeScene extends BaseScene {
     const buttonGraphics = this.add.graphics();
     this.updateButtonGraphics(buttonGraphics, buttonWidth, buttonHeight, 0xffffff, 0.9, cornerRadius);
 
-    // Gunakan font Nunito
+    //Font Nunito
     const buttonText = this.add.text(
         buttonWidth / 2, buttonHeight / 2, text,
         {
@@ -125,7 +122,7 @@ export class PilihModeScene extends BaseScene {
     return container;
   }
 
-  // --- Helper gambar tombol ---
+  //Helper gambar tombol
   private updateButtonGraphics(
       graphics: Phaser.GameObjects.Graphics,
       width: number,
@@ -141,7 +138,7 @@ export class PilihModeScene extends BaseScene {
       graphics.strokeRoundedRect(0, 0, width, height, cornerRadius);
   }
 
-  // --- Helper SFX (Tambahkan override) ---
+  //Helper SFX (Tambahkan override)
   protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
       super.playSound(key, config);
   }

@@ -1,4 +1,3 @@
-// File: src/client/scenes/ResultsScene.ts
 import { BaseScene } from './BaseScene';
 
 export class ResultsScene extends BaseScene {
@@ -14,11 +13,9 @@ export class ResultsScene extends BaseScene {
 
   public override create() {
     super.create();
-    // this.draw() dipanggil oleh BaseScene
   }
 
-  public override draw() {
-    // 1. Bersihkan group & listener lama
+  public override draw() { // this.draw() dipanggil oleh BaseScene
     super.draw();
     if (!this.sceneContentGroup) return;
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
@@ -26,24 +23,23 @@ export class ResultsScene extends BaseScene {
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    // 2. Buat elemen (Font Nunito)
+    //Buat elemen Font
     const title = this.add.text(this.centerX, this.scale.height * 0.3, 'Kuis Selesai!', {
-        fontFamily: 'Nunito', // <-- FONT
+        fontFamily: 'Nunito', 
         fontSize: '48px', color: '#000000', stroke: '#ffffff', strokeThickness: 4
       }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
     const scoreText = this.add.text(this.centerX, this.scale.height * 0.45, `Skor Akhir Anda: ${this.finalScore}`, {
-        fontFamily: 'Nunito', // <-- FONT
+        fontFamily: 'Nunito', 
         fontSize: '32px', color: '#000000', stroke: '#ffffff', strokeThickness: 2
       }).setOrigin(0.5);
     this.sceneContentGroup.add(scoreText);
 
-    // Buat tombol (Gaya biru, Font Nunito)
+    // Buat tombol
     const btn1 = this.createStyledButton(this.centerX, this.scale.height * 0.6, 'Main Lagi');
     const btn2 = this.createStyledButton(this.centerX, this.scale.height * 0.7, 'Leaderboard');
 
-    // Tambahkan tombol ke group
     this.sceneContentGroup.add(btn1);
     this.sceneContentGroup.add(btn2);
 
@@ -52,13 +48,13 @@ export class ResultsScene extends BaseScene {
         { button: btn2, action: () => this.scene.start('LeaderboardScene') }
     ];
 
-    // 3. Listener Scene
+    //Listener Scene
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
         buttons.forEach(btn => {
-            if (this.isPointerOver(pointer, btn.button)) { // Pakai isPointerOver dari BaseScene
-                 btn.button.setBackgroundColor('#004499'); // Warna klik
+            if (this.isPointerOver(pointer, btn.button)) { //Pakai isPointerOver dari BaseScene
+                 btn.button.setBackgroundColor('#004499'); //Warna klik
                  this.time.delayedCall(100, () => {
-                    this.playSound('sfx_click'); // Mainkan SFX
+                    this.playSound('sfx_click'); //Play SFX
                     btn.action();
                  });
             }
@@ -68,7 +64,7 @@ export class ResultsScene extends BaseScene {
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onButton = false;
         buttons.forEach(btn => {
-            if (this.isPointerOver(pointer, btn.button)) { // Pakai isPointerOver dari BaseScene
+            if (this.isPointerOver(pointer, btn.button)) { //Pakai isPointerOver dari BaseScene
                 onButton = true;
                 if (!btn.button.getData('isHovered')) {
                     btn.button.setBackgroundColor('#0056b3'); // Warna hover
@@ -81,7 +77,7 @@ export class ResultsScene extends BaseScene {
                  }
             }
         });
-        // Cek tombol utilitas
+        //Cek tombol utilitas
         let onUtilButton = false;
         if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
         if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
@@ -97,7 +93,7 @@ export class ResultsScene extends BaseScene {
     });
   }
 
-   // Helper createStyledButton (Font Nunito, tanpa listener)
+   // Helper createStyledButton
    createStyledButton(x: number, y: number, text: string): Phaser.GameObjects.Text {
      const buttonText = this.add.text(x, y, text, {
          fontFamily: 'Nunito', // <-- FONT
@@ -107,13 +103,12 @@ export class ResultsScene extends BaseScene {
 
      buttonText.setData('isHovered', false);
      buttonText.setName(text);
-     // **TIDAK ADA .setInteractive() atau .on() di sini**
 
      return buttonText;
    }
    
    // Helper SFX
-   protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
+   protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
        if (!this.sound.mute) {
            this.sound.play(key, config);
        }

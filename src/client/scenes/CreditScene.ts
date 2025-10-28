@@ -1,4 +1,3 @@
-// File: src/client/scenes/CreditScene.ts
 import { BaseScene } from './BaseScene';
 
 export class CreditScene extends BaseScene {
@@ -12,7 +11,6 @@ export class CreditScene extends BaseScene {
   }
 
   public override draw() {
-    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
@@ -39,7 +37,7 @@ export class CreditScene extends BaseScene {
     this.sceneContentGroup.add(h1);
     this.sceneContentGroup.add(i1);
 
-    // Backsound Artist
+    //Sound Artist
     const h2 = this.add.text(this.centerX, yPos, 'Backsound Artist', styleHeader).setOrigin(0.5);
     yPos += 40; // Jarak setelah header
     const i2 = this.add.text(this.centerX, yPos, '- Artist BGM 1', styleItem).setOrigin(0.5);
@@ -66,7 +64,7 @@ export class CreditScene extends BaseScene {
     this.sceneContentGroup.add(h4);
     this.sceneContentGroup.add(i5);
 
-     // 3. Listener HANYA untuk tombol musik/kembali
+     //Listener HANYA untuk tombol musik dan kembali
      this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
         let onUtilButton = false;
         // Gunakan isPointerOver dari BaseScene
@@ -77,6 +75,5 @@ export class CreditScene extends BaseScene {
      this.input.on(Phaser.Input.Events.GAME_OUT, () => {
          this.input.setDefaultCursor('default');
      });
-  } // <-- Akhir draw()
-
-} // <-- Akhir Class
+  } 
+}

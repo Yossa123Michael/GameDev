@@ -1,4 +1,3 @@
-// File: src/client/main.ts
 import Phaser from 'phaser';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { PilihModeScene } from './scenes/PilihModeScene';
@@ -10,7 +9,7 @@ import { AchievementScene } from './scenes/AchievementScene';
 import { OptionScene } from './scenes/OptionScene';
 import { CreditScene } from './scenes/CreditScene';
 
-// --- Scene Boot untuk Font (Definisi ada di sini) ---
+//Scene Boot untuk Font
 class BootScene extends Phaser.Scene {
   constructor() {
     super('BootScene');
@@ -23,23 +22,19 @@ class BootScene extends Phaser.Scene {
   create() {
     (window as any).WebFont.load({
       google: {
-        families: ['Nunito:700'] // Muat Nunito bold
+        families: ['Nunito:700'] // font
       },
       active: () => {
         console.log('Font Nunito loaded, starting MainMenuScene...');
-        // Setelah font aktif, mulai MainMenuScene
         this.scene.start('MainMenuScene');
       },
       inactive: () => {
          console.warn('Gagal memuat font Nunito, menggunakan font default.');
-         // Jika gagal, tetap mulai
          this.scene.start('MainMenuScene');
       }
     });
   }
-}
-// --- Akhir Scene Boot ---
-
+}//Scene Boot
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.CANVAS,

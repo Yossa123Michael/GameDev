@@ -1,34 +1,27 @@
-// File: src/client/scenes/BaseScene.ts
 import Phaser from 'phaser';
 
 export class BaseScene extends Phaser.Scene {
   protected centerX!: number;
   protected centerY!: number;
-  protected musicButton!: Phaser.GameObjects.Image; // Gambar
-  protected backButton!: Phaser.GameObjects.Image; // Gambar
+  protected musicButton!: Phaser.GameObjects.Image;
+  protected backButton!: Phaser.GameObjects.Image;
   protected sceneContentGroup!: Phaser.GameObjects.Group;
 
   protected static isMusicOn: boolean = true;
   protected static backgroundMusic: Phaser.Sound.BaseSound | null = null;
 
-  preload() {
+  preload() { //Aset Negara
     console.log("BaseScene preload starting...");
-
-    // --- Muat Aset Gambar (Sesuai Repositori Anda) ---
     this.load.image('background', 'assets/Images/Asset 8.png');
-    this.load.image('logo', 'assets/Images/Asset 7.png'); // Path dari subfolder PNG
-    this.load.image('music_on', 'assets/Images/Unmute.png');   // Ganti jika nama file beda
-    this.load.image('music_off', 'assets/Images/Mute.png'); // Ganti jika nama file beda
+    this.load.image('logo', 'assets/Images/Asset 7.png'); 
+    this.load.image('music_on', 'assets/Images/Unmute.png');
+    this.load.image('music_off', 'assets/Images/Mute.png');
     this.load.image('back_arrow', 'assets/Images/Back.png');
-
-    // --- Muat Aset Audio (Sesuai Repositori Anda) ---
     console.log("Loading audio assets...");
     this.load.audio('bgm', 'assets/Sounds/Backsound.wav');
     this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');
     this.load.audio('sfx_correct', 'assets/Sounds/Right.mp3');
     this.load.audio('sfx_incorrect', 'assets/Sounds/Wrong.mp3');
-    // --- Akhir Muat Audio ---
-
     console.log("BaseScene preload finished.");
   }
 
@@ -40,7 +33,7 @@ export class BaseScene extends Phaser.Scene {
     try {
         this.add.image(this.centerX, this.centerY, 'background')
             .setName('background_base').setDisplaySize(this.scale.width, this.scale.height).setDepth(-1);
-    } catch (e) {
+    } catch (e) { //Biang
         console.error("Gagal membuat background image:", e);
         this.add.rectangle(this.centerX, this.centerY, this.scale.width, this.scale.height, 0x000000).setOrigin(0.5);
     }
@@ -54,7 +47,7 @@ export class BaseScene extends Phaser.Scene {
         this.handleResize(this.scale.gameSize);
     });
 
-    // --- Logika Musik Latar (Sekarang Diaktifkan) ---
+    //Logika Musik (Aktif)
     if (!BaseScene.backgroundMusic && BaseScene.isMusicOn) {
         if (this.cache.audio.exists('bgm')) {
             BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 });
@@ -63,7 +56,7 @@ export class BaseScene extends Phaser.Scene {
         } else { console.warn("Audio key 'bgm' not found."); }
     } else if (BaseScene.backgroundMusic && !BaseScene.isMusicOn) { BaseScene.backgroundMusic.pause(); }
     else if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) { BaseScene.backgroundMusic.resume(); }
-    // --- Akhir Logika Musik Latar ---
+    //Logika Musi
 
     this.createCommonButtons();
     if (this.musicButton) this.musicButton.setName('musicButton_base');
@@ -110,9 +103,9 @@ export class BaseScene extends Phaser.Scene {
    protected createCommonButtons(backTargetScene: string = 'MainMenuScene') {
      const iconMarginHorizontal = this.scale.width * 0.05;
      const iconMarginVertical = this.scale.height * 0.05;
-     const iconScale = 0.5; // Sesuaikan skala ikon jika perlu
+     const iconScale = 0.5; 
 
-     // Tombol Musik (dengan try-catch)
+     // Tombol Musik (try-catch)
      const musicButtonX = this.scale.width - iconMarginHorizontal;
      const musicButtonY = iconMarginVertical;
      const initialMusicTexture = BaseScene.isMusicOn ? 'music_on' : 'music_off';
@@ -127,7 +120,7 @@ export class BaseScene extends Phaser.Scene {
            } catch(e) { console.error("Gagal set tekstur tombol musik saat klik:", e); }
            console.log('Music Toggled:', BaseScene.isMusicOn);
            
-           // Logika Mute/Unmute
+           //Logika Mute/Unmute
            if (BaseScene.backgroundMusic) {
                if (BaseScene.isMusicOn) {
                    if (!BaseScene.backgroundMusic.isPlaying) { BaseScene.backgroundMusic.resume(); }
@@ -145,7 +138,7 @@ export class BaseScene extends Phaser.Scene {
          this.musicButton = this.add.text(musicButtonX, musicButtonY, '[M]', {fontSize: '20px', color: '#fff'}).setOrigin(1,0) as any;
      }
 
-     // Tombol Kembali (dengan try-catch)
+     //Tombol Kembali (try-catch)
      if (this.scene.key !== 'MainMenuScene') {
         const backButtonX = iconMarginHorizontal;
         const backButtonY = iconMarginVertical;
@@ -155,9 +148,9 @@ export class BaseScene extends Phaser.Scene {
                 .setOrigin(0, 0).setScale(iconScale).setInteractive({ useHandCursor: true });
 
              this.backButton.on(Phaser.Input.Events.POINTER_DOWN, () => {
-                this.playSound('sfx_click'); // Mainkan SFX
+                this.playSound('sfx_click'); //Mainkan SFX
                 
-                // Pindah scene (delay untuk SFX)
+                //Pindah scene (delay SFX)
                 this.time.delayedCall(100, () => {
                     if (this.scene.key === 'PilihModeScene') finalTarget = 'MainMenuScene';
                     else if (this.scene.key === 'PilihKesulitanScene') finalTarget = 'PilihModeScene';
@@ -194,7 +187,7 @@ export class BaseScene extends Phaser.Scene {
     }
   }
 
-  // --- TAMBAHAN: HELPER isPointerOver ---
+  //Biang
   public isPointerOver(pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.GameObject): boolean {
     if (!(gameObject instanceof Phaser.GameObjects.Container || gameObject instanceof Phaser.GameObjects.Text || gameObject instanceof Phaser.GameObjects.Image)) {
         return false;
@@ -233,10 +226,9 @@ export class BaseScene extends Phaser.Scene {
 
     const hitAreaRect = new Phaser.Geom.Rectangle(worldX, worldY, width, height);
     return hitAreaRect.contains(pointer.x, pointer.y);
-  }
-  // --- AKHIR HELPER isPointerOver ---
+  }//Biang
 
-  // --- TAMBAHAN: HELPER playSound (Sekarang Diaktifkan) ---
+  //HELPER playSound (Diaktifkan)
   protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
      try {
          // Cek jika key audio ada sebelum play
@@ -249,7 +241,6 @@ export class BaseScene extends Phaser.Scene {
      } catch (e) {
          console.error(`Gagal memainkan audio '${key}':`, e);
      }
-  }
- // --- AKHIR HELPER playSound ---
+  }//HELPER playSound ---
 
-} // Akhir Class
+}
