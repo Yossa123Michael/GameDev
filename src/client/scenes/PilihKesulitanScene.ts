@@ -146,7 +146,10 @@ export class PilihKesulitanScene extends BaseScene {
 
     return container;
   } // <-- Akhir createButton()
-
+  startGame(difficulty: DifficultyKey) {
+  console.log('PilihKesulitanScene.startGame ->', { mode: this.mode, difficulty });
+  this.scene.start('GameScene', { mode: this.mode, difficulty: difficulty });
+}
   // --- Helper gambar tombol ---
   private updateButtonGraphics(
       graphics: Phaser.GameObjects.Graphics,
