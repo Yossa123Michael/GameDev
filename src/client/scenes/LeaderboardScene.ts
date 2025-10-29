@@ -1,52 +1,61 @@
 import { BaseScene } from './BaseScene';
+import { supabase } from '../lib/supabaseClient';
+
+type Entry = { name: string; score: number; created_at: string };
 
 export class LeaderboardScene extends BaseScene {
-  constructor() {
-    super('LeaderboardScene');
+  private entries: Entry[] = [];
+
+  constructor() { super('LeaderboardScene'); }
+
+  public override async create() {
+    super.create();
+    super.createCommonButtons('MainMenuScene');
+    await this.loadLeaderboard();
+    this.draw();
   }
 
-  public override create() {
-    super.create();
+  private async loadLeaderboard(limit = 10) {
+    try {
+      const { data, error } = await supabase
+        .from('scores')
+        .select('name,score,created_at')
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(limit);
+
+      if (error) {
+        console.error('Failed to load leaderboard', error);
+        this.entries = [];
+      } else {
+        this.entries = data as any;
+      }
+    } catch (e) {
+      console.error('loadLeaderboard error', e);
+      this.entries = [];
+    }
   }
 
   public override draw() {
     super.draw();
     if (!this.sceneContentGroup) return;
-    this.input.off(Phaser.Input.Events.POINTER_DOWN);
-    this.input.off(Phaser.Input.Events.POINTER_MOVE);
-    this.input.off(Phaser.Input.Events.GAME_OUT);
-    this.input.setDefaultCursor('default');
 
-    //Font
-    const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Leaderboard', {
-        fontFamily: 'Nunito', fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
-      }).setOrigin(0.5);
+    const title = this.add.text(this.centerX, 80, 'Leaderboard', { fontFamily: 'Nunito', fontSize: '36px', color: '#000' }).setOrigin(0.5);
     this.sceneContentGroup.add(title);
 
-    const subTitle = this.add.text(this.centerX, this.centerY - 50, 'Peringkat Berdasarkan Skor', {
-        fontFamily: 'Nunito', fontSize: '24px', color: '#333', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 }
-    }).setOrigin(0.5);
-    this.sceneContentGroup.add(subTitle);
+    const startY = 140;
+    const rowH = 36;
+    this.entries.forEach((e, i) => {
+      const y = startY + i * rowH;
+      const rank = this.add.text(this.scale.width * 0.08, y, `${i + 1}.`, { fontFamily: 'Nunito', fontSize: '20px' }).setOrigin(0, 0.5);
+      const name = this.add.text(this.scale.width * 0.18, y, e.name, { fontFamily: 'Nunito', fontSize: '20px' }).setOrigin(0, 0.5);
+      const score = this.add.text(this.scale.width * 0.88, y, `${e.score}`, { fontFamily: 'Nunito', fontSize: '20px' }).setOrigin(1, 0.5);
+      this.sceneContentGroup.addMultiple([rank, name, score]);
+    });
 
-    const p1 = this.add.text(this.centerX, this.centerY + 0, '1. Player A - 150', { fontFamily: 'Nunito', fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
-    const p2 = this.add.text(this.centerX, this.centerY + 40, '2. Player B - 120', { fontFamily: 'Nunito', fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
-    const p3 = this.add.text(this.centerX, this.centerY + 80, '3. Player C - 100', { fontFamily: 'Nunito', fontSize: '20px', color: '#000', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
-    const soon = this.add.text(this.centerX, this.centerY + 120, '(Fitur lengkap segera hadir)', { fontFamily: 'Nunito', fontSize: '16px', color: '#555', backgroundColor: '#ffffffaa', padding: { x: 5, y: 5 } }).setOrigin(0.5);
-
-    this.sceneContentGroup.add(p1);
-    this.sceneContentGroup.add(p2);
-    this.sceneContentGroup.add(p3);
-    this.sceneContentGroup.add(soon);
-
-     // 3. Listener HANYA untuk tombol musik dan kembali
-     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
-        let onUtilButton = false;
-        if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
-        if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
-        this.input.setDefaultCursor(onUtilButton ? 'pointer' : 'default');
-     });
-     this.input.on(Phaser.Input.Events.GAME_OUT, () => {
-         this.input.setDefaultCursor('default');
-     });
+    if (this.entries.length === 0) {
+      const info = this.add.text(this.centerX, this.scale.height * 0.5, 'Leaderboard kosong', { fontFamily: 'Nunito', fontSize: '18px', color: '#666' }).setOrigin(0.5);
+      this.sceneContentGroup.add(info);
+    }
   }
 }
