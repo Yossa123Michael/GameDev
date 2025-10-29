@@ -7,7 +7,7 @@ type DifficultySettings = {
   [key in DifficultyKey]: { //difficulty tipe kunci ini
     totalQuestions: number;
     totalTime: number;
-    mix: { mudah: number; menengah: number; sulit: number; };
+    mix: { mudah: number; menengah: number; sulit: number; pro?: number };
     scoreBase: number;
     scoreTimeMultiplier: number;
     scoreTimeCeiling: boolean;
@@ -17,10 +17,10 @@ type DifficultySettings = {
 export class Game extends BaseScene {
    // Settingan
    private difficultySettings: DifficultySettings = {
-       mudah:    { totalQuestions: 20, totalTime: 180, mix: { mudah: 0.9, menengah: 0.1, sulit: 0.0, }, scoreBase: 1,   scoreTimeMultiplier: 1,   scoreTimeCeiling: false },
-       menengah: { totalQuestions: 20, totalTime: 180, mix: { mudah: 0.1, menengah: 0.8, sulit: 0.1, }, scoreBase: 2,   scoreTimeMultiplier: 1.5, scoreTimeCeiling: true  },
-       sulit:    { totalQuestions: 20, totalTime: 180, mix: { mudah: 0.0, menengah: 0.1, sulit: 0.9, }, scoreBase: 2.5, scoreTimeMultiplier: 2,   scoreTimeCeiling: true  },
-       pro:      { totalQuestions: 20, totalTime: 150, mix: { mudah: 0.0, menengah: 0.0, sulit: 1.0,}, scoreBase: 5,   scoreTimeMultiplier: 2,   scoreTimeCeiling: false },
+       mudah:    { totalQuestions: 20, totalTime: 180, mix: { mudah: 0.9, menengah: 0.1, sulit: 0.0 }, scoreBase: 1,   scoreTimeMultiplier: 1,   scoreTimeCeiling: false },
+       menengah: { totalQuestions: 20, totalTime: 180, mix: { mudah: 0.1, menengah: 0.8, sulit: 0.1 }, scoreBase: 2,   scoreTimeMultiplier: 1.5, scoreTimeCeiling: true  },
+       sulit:    { totalQuestions: 20, totalTime: 180, mix: { mudah: 0.0, menengah: 0.1, sulit: 0.9 }, scoreBase: 2.5, scoreTimeMultiplier: 2,   scoreTimeCeiling: true  },
+       pro:      { totalQuestions: 20, totalTime: 150, mix: { mudah: 0.0, menengah: 0.0, sulit: 1.0 }, scoreBase: 5,   scoreTimeMultiplier: 2,   scoreTimeCeiling: false },
    };
 
    private mode!: string;
@@ -39,84 +39,112 @@ export class Game extends BaseScene {
    private activeOptionButtons: { container: Phaser.GameObjects.Container }[] = [];
    private isDrawing: boolean = false;
 
+   // SURVIVE mode fields
+   private perQuestionTime: number = 10;           // tiap stage di mode survive (detik)
+   private elapsedTime: number = 0;                // waktu tersembunyi (detik) sejak mulai survive
+   private askedQuestionIds: Set<number> = new Set();
+
   // Biang
   constructor() {
     super('GameScene');
   }
 
   public init (data: { mode?: string; difficulty?: DifficultyKey }) {
-  if (data.mode) {
-    this.mode = data.mode;
-  }
-  // Simpan difficulty jika dikirim; kalau tidak, pakai fallback 'mudah'
-  if (data.difficulty) {
-    this.difficulty = data.difficulty;
-  } else {
-    console.warn('GameScene.init: difficulty tidak diberikan — menggunakan default "mudah"');
-    this.difficulty = 'mudah';
-  }
+    if (data.mode) {
+      this.mode = data.mode;
+    }
+    // Simpan difficulty jika dikirim; kalau tidak, pakai fallback 'mudah'
+    if (data.difficulty) {
+      this.difficulty = data.difficulty;
+    } else {
+      console.warn('GameScene.init: difficulty tidak diberikan — menggunakan default "mudah"');
+      this.difficulty = 'mudah';
+    }
 
-  // Reset habis main
-  this.currentQuestionIndex = 0;
-  this.score = 0;
-  this.remainingTime = 0;
-  this.lives = 0;
-  if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
-  this.timerEvent = null;
-  this.timerText = null;
-  this.scoreText = null;
-  this.livesText = null;
-  this.questionText = null;
-  this.feedbackText = null;
-  this.activeOptionButtons = [];
-  this.isDrawing = false;
+    // Reset habis main
+    this.currentQuestionIndex = 0;
+    this.score = 0;
+    this.remainingTime = 0;
+    this.lives = 0;
+    if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
+    this.timerEvent = null;
+    this.timerText = null;
+    this.scoreText = null;
+    this.livesText = null;
+    this.questionText = null;
+    this.feedbackText = null;
+    this.activeOptionButtons = [];
+    this.isDrawing = false;
 
-  console.log(`GameScene.init -> mode: ${this.mode}, difficulty: ${this.difficulty}`);
-}
+    // Reset survive-specific
+    this.perQuestionTime = 10;
+    this.elapsedTime = 0;
+    this.askedQuestionIds = new Set();
+
+    console.log(`GameScene.init -> mode: ${this.mode}, difficulty: ${this.difficulty}`);
+  }
   
   public override create() {
     console.log("GameScene create starting...");
-     try {
-    console.log('[DBG] this.selectQuestions ->', (this as any).selectQuestions, 'typeof:', typeof (this as any).selectQuestions);
-  } catch (e) {
-    console.error('[DBG] Error checking selectQuestions:', e);
-  }
+    try {
+      console.log('[DBG] this.selectQuestions ->', (this as any).selectQuestions, 'typeof:', typeof (this as any).selectQuestions);
+    } catch (e) {
+      console.error('[DBG] Error checking selectQuestions:', e);
+    }
 
-  // Biang
-  if (typeof (this as any).selectQuestions !== 'function') {
-    console.error("GameScene.create: selectQuestions is not a function. Aborting to avoid crash.");
-    alert('Terjadi kesalahan internal: fungsi selectQuestions tidak tersedia. Silakan kembali dan coba lagi.');
-    try { this.scene.start('PilihKesulitanScene', { mode: this.mode }); } catch(e) { console.error('Gagal fallback ke PilihKesulitanScene:', e); }
-    return;
-  }
+    // Safety: check settings
+    const settings = this.difficultySettings[this.difficulty];
+    if (!settings) { console.error("Invalid difficulty"); this.scene.start('PilihModeScene'); return; }
 
-  // Panggil selectQuestions via any (error TS saat debug)
-  const settings = this.difficultySettings[this.difficulty];
-  if (!settings) { console.error("Invalid difficulty"); this.scene.start('PilihKesulitanScene', { mode: this.mode }); return; }
-
-  this.questions = (this as any).selectQuestions(this.difficulty, settings.totalQuestions);
-  if (!this.questions || this.questions.length === 0 || this.questions.length < settings.totalQuestions) {
-      alert(`Bank soal tidak cukup`); this.scene.start('PilihKesulitanScene', { mode: this.mode }); return;
-  }
-
-    this.currentQuestionIndex = 0;
-    this.score = 0;
-    this.remainingTime = settings.totalTime;
-    this.lives = this.mode === 'survive' ? 3 : 99;
+    // --- Setup depending on mode ---
+    if (this.mode === 'survive') {
+      // Survive: per-stage timer of perQuestionTime seconds, lives start at 3
+      this.perQuestionTime = 10;
+      this.elapsedTime = 0;
+      this.askedQuestionIds.clear();
+      this.lives = 3;
+      // pick first question according to elapsedTime (initially 0 -> mudah)
+      const firstQ = this.getSurviveQuestion();
+      if (!firstQ) {
+        console.error("Tidak ada soal untuk mode survive");
+        this.scene.start('PilihModeScene');
+        return;
+      }
+      this.questions = [firstQ];
+      this.currentQuestionIndex = 0;
+      this.remainingTime = this.perQuestionTime;
+    } else {
+      // Normal mode: pick a batch using existing logic
+      this.questions = (this as any).selectQuestions(this.difficulty, settings.totalQuestions);
+      if (!this.questions || this.questions.length === 0 || this.questions.length < settings.totalQuestions) {
+          console.error(`Bank soal tidak cukup: tersedia ${this.questions ? this.questions.length : 0}, dibutuhkan ${settings.totalQuestions}`);
+          // show brief message and fallback
+          const errText = this.add.text(this.centerX, this.centerY, 'Bank soal tidak cukup. Kembali ke menu.', {
+            fontFamily: 'Nunito', fontSize: '20px', color: '#ff0000', backgroundColor: '#ffffffcc', padding: { x: 8, y: 6 }
+          }).setOrigin(0.5);
+          this.sceneContentGroup?.add(errText);
+          this.time.delayedCall(1200, () => this.scene.start('PilihKesulitanScene', { mode: this.mode }));
+          return;
+      }
+      this.currentQuestionIndex = 0;
+      this.remainingTime = settings.totalTime;
+      this.lives = 99;
+    }
 
     if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
     this.timerEvent = this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
     console.log("Timer created in create()");
 
     super.create();
-    super.createCommonButtons('PilihKesulitanScene');
+    // Set back target: for survive go back to mode selection (tidak kembali ke PilihKesulitanScene)
+    const backTarget = this.mode === 'survive' ? 'PilihModeScene' : 'PilihKesulitanScene';
+    super.createCommonButtons(backTarget);
     console.log("GameScene create finished.");
   }
 
   public override draw() {
     if (this.isDrawing) { console.warn("Skipping draw()"); return; }
     this.isDrawing = true;
-    // console.log(`GameScene draw() started.`);
 
     try {
         super.draw(); // Bersihkan group
@@ -189,13 +217,13 @@ export class Game extends BaseScene {
                 }
             });
         });
-        this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => { //difficulty 'pointer'
+        this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
             let onButton = false;
             [...this.activeOptionButtons].forEach(btn => {
                  if (!btn.container || !btn.container.active) return;
                  const graphics = btn.container.getAt(0) as Phaser.GameObjects.Graphics;
                  if (!graphics) return;
-                 if (this.isPointerOver(pointer, btn.container)) { //difficulty 'pointer'
+                 if (this.isPointerOver(pointer, btn.container)) {
                      onButton = true;
                      if (!btn.container.getData('isHovered')) {
                         this.updateButtonGraphics(graphics, btn.container.width, btn.container.height, 0xeeeeee);
@@ -209,8 +237,8 @@ export class Game extends BaseScene {
                  }
             });
             let onUtilButton = false;
-            if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true; //difficulty 'pointer'
-            if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true; //difficulty 'pointer'
+            if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) onUtilButton = true;
+            if (this.backButton && this.isPointerOver(pointer, this.backButton)) onUtilButton = true;
             this.input.setDefaultCursor(onButton || onUtilButton ? 'pointer' : 'default');
         });
         this.input.on(Phaser.Input.Events.GAME_OUT, () => {
@@ -224,7 +252,7 @@ export class Game extends BaseScene {
              this.input.setDefaultCursor('default');
         });
 
-    } catch (error) { /* handle error */ } //Biang
+    } catch (error) { /* handle error */ }
     finally { this.isDrawing = false; }
   } // public override draw()
 
@@ -275,7 +303,7 @@ export class Game extends BaseScene {
     } // updateButtonGraphics()
 
     //Kerjaan handleAnswer (selectedButton)
-    handleAnswer(selectedButton: Phaser.GameObjects.Container) { //selectedButton
+    handleAnswer(selectedButton: Phaser.GameObjects.Container) {
         console.log(`handleAnswer called for button: ${selectedButton.name}`);
         this.input.off(Phaser.Input.Events.POINTER_DOWN);
         // ... matikan input lain ...
@@ -283,35 +311,44 @@ export class Game extends BaseScene {
         this.input.off(Phaser.Input.Events.GAME_OUT);
         this.input.setDefaultCursor('default');
 
-
         if (this.timerEvent) { this.timerEvent.paused = true; }
         else { console.warn("timerEvent null in handleAnswer"); }
 
         this.activeOptionButtons.forEach(btn => btn.container?.setData('isHovered', false));
         this.activeOptionButtons = [];
 
-        const isCorrect = selectedButton.getData('isCorrect'); //selectedButton
+        const isCorrect = selectedButton.getData('isCorrect');
         const selectedButtonGraphics = selectedButton.getAt(0) as Phaser.GameObjects.Graphics;
         if (!selectedButtonGraphics) { return; }
 
         const scoreSettings = this.difficultySettings[this.difficulty];
 
         if (isCorrect) {
-            let timeBonus = this.remainingTime * scoreSettings.scoreTimeMultiplier;
-            if (scoreSettings.scoreTimeCeiling) { timeBonus = Math.ceil(timeBonus); }
-            const scoreToAdd = scoreSettings.scoreBase + timeBonus;
-            this.score += scoreToAdd;
+            if (this.mode === 'survive') {
+                // Skor = 1 + sisa detik (floor)
+                const add = 1 + Math.max(0, Math.floor(this.remainingTime));
+                this.score += add;
+            } else {
+                let timeBonus = this.remainingTime * scoreSettings.scoreTimeMultiplier;
+                if (scoreSettings.scoreTimeCeiling) { timeBonus = Math.ceil(timeBonus); }
+                const scoreToAdd = scoreSettings.scoreBase + timeBonus;
+                this.score += scoreToAdd;
+            }
 
             if(this.feedbackText) this.feedbackText.setText('BENAR!').setColor('#008000').setBackgroundColor('#90EE90cc');
             this.updateButtonGraphics(selectedButtonGraphics, selectedButton.width, selectedButton.height, 0x90EE90);
             this.playSound('sfx_correct');
         } else {
-            if (this.mode === 'survive') { this.lives -= 1; if (this.livesText) this.livesText.setText(`Nyawa: ${this.lives}`); }
+            if (this.mode === 'survive') {
+                this.lives = Math.max(0, this.lives - 1);
+                if (this.livesText) this.livesText.setText(`Nyawa: ${this.lives}`);
+                if (this.lives <= 0) { this.gameOver('Habis Nyawa'); return; }
+            }
             if(this.feedbackText) this.feedbackText.setText('SALAH!').setColor('#FF0000').setBackgroundColor('#FFCCCBcc');
             this.updateButtonGraphics(selectedButtonGraphics, selectedButton.width, selectedButton.height, 0xFFCCCB);
-             this.playSound('sfx_incorrect');
+            this.playSound('sfx_incorrect');
 
-            this.sceneContentGroup?.getChildren().forEach(child => { // PERBAIKAN TS6133:difficulty child
+            this.sceneContentGroup?.getChildren().forEach(child => {
                  if (child instanceof Phaser.GameObjects.Container && child.getData('isCorrect') === true) {
                       const correctGraphics = child.getAt(0) as Phaser.GameObjects.Graphics;
                       if (correctGraphics) {
@@ -326,89 +363,100 @@ export class Game extends BaseScene {
     } // handleAnswer()
 
     updateTimer() {
-  try {
-    if (!this.scene.isActive(this.scene.key)) return;
+      try {
+        if (!this.scene.isActive(this.scene.key)) return;
 
-    // Aturan waktu
-    this.remainingTime = Math.max(0, this.remainingTime - 1);
+        // Mode survive: per-question timer + global elapsedTime
+        if (this.mode === 'survive') {
+          this.remainingTime = Math.max(0, this.remainingTime - 1);
+          this.elapsedTime += 1;
 
-    // Perbarui tampilan waktu jaga2
-    if (this.timerText) {
-      this.timerText.setText(`Waktu: ${this.remainingTime}`);
-      // Deadline
-      if (this.remainingTime <= 10) this.timerText.setColor('#FF0000');
-      else this.timerText.setColor('#000000');
+          if (this.timerText) {
+            this.timerText.setText(`Waktu: ${this.remainingTime}`);
+            if (this.remainingTime <= 3) this.timerText.setColor('#FF0000'); else this.timerText.setColor('#000000');
+          }
+
+          if (this.remainingTime <= 0) {
+            // treat as wrong / lose one life
+            this.playSound('sfx_incorrect');
+            this.lives = Math.max(0, this.lives - 1);
+            if (this.livesText) this.livesText.setText(`Nyawa: ${this.lives}`);
+            if (this.lives <= 0) { this.gameOver('Habis Nyawa'); return; }
+            // next question after short delay
+            this.time.delayedCall(700, () => this.nextQuestion(), [], this);
+          }
+          return;
+        }
+
+        // Mode normal: global countdown
+        this.remainingTime = Math.max(0, this.remainingTime - 1);
+
+        if (this.timerText) {
+          this.timerText.setText(`Waktu: ${this.remainingTime}`);
+          if (this.remainingTime <= 10) this.timerText.setColor('#FF0000');
+          else this.timerText.setColor('#000000');
+        }
+
+        if (this.remainingTime <= 0) {
+          if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
+          this.gameOver('Waktu Habis');
+        }
+      } catch (e) {
+        console.error('Error in updateTimer():', e);
+      }
     }
 
-    // Waktu habis => game over
-    if (this.remainingTime <= 0) {
-      // TimerEvent dihapus supaya tidak terus memanggil
-      if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
-      this.gameOver('Waktu Habis');
-    }
-  } catch (e) {
-    console.error('Error in updateTimer():', e);
-  }
-}
+    nextQuestion() {
+      try {
+        if (this.mode === 'survive') {
+          // ambil soal baru sesuai elapsedTime
+          const newQ = this.getSurviveQuestion();
+          if (!newQ) {
+            this.gameOver('Selesai');
+            return;
+          }
+          this.questions.push(newQ);
+          this.currentQuestionIndex = this.questions.length - 1;
 
-nextQuestion() {
-  try {
-    // Jika tidak ada soal atau index invalid, akhiri permainan
-    if (!this.questions || this.questions.length === 0) {
-      this.gameOver('Tidak ada soal');
-      return;
-    }
+          // reset remaining time for next stage
+          this.remainingTime = this.perQuestionTime;
+          if (this.timerEvent) {
+            this.timerEvent.paused = false;
+          } else {
+            this.timerEvent = this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
+          }
 
-    // Jika sudah di soal terakhir, akhiri permainan
-    if (this.currentQuestionIndex >= this.questions.length - 1) {
-      this.gameOver('Selesai');
-      return;
-    }
+          if (typeof (this as any).draw === 'function') (this as any).draw();
+          return;
+        }
 
-    // Naik ke soal berikutnya
-    this.currentQuestionIndex++;
+        // Mode normal:
+        if (!this.questions || this.questions.length === 0) { this.gameOver('Tidak ada soal'); return; }
+        if (this.currentQuestionIndex >= this.questions.length - 1) { this.gameOver('Selesai'); return; }
 
-    // Reset feedback text jika ada
-    if (this.feedbackText) {
-      this.feedbackText.setText('');
+        this.currentQuestionIndex++;
+        if (this.feedbackText) this.feedbackText.setText('');
+        if (this.timerEvent) { try { this.timerEvent.paused = false; } catch(e) { /* ignore */ } }
+        if (typeof (this as any).draw === 'function') (this as any).draw();
+      } catch (e) {
+        console.error('Error in nextQuestion():', e);
+        this.gameOver('Terjadi kesalahan');
+      }
     }
-
-    // Resume timer jika sempat dipause (handleAnswer mem-pause timer)
-    if (this.timerEvent) {
-      try { this.timerEvent.paused = false; } catch(e) { /* ignore */ }
-    } else {
-      // Jika timerEvent terhapus, buat ulang timer
-      const settings = this.difficultySettings[this.difficulty];
-      this.remainingTime = this.remainingTime > 0 ? this.remainingTime : settings.totalTime;
-      this.timerEvent = this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
-    }
-
-    // Gambar ulang UI untuk menampilkan soal baru
-    // draw() membersihkan group dan membuat UI baru
-    if (typeof (this as any).draw === 'function') {
-      (this as any).draw();
-    }
-  } catch (e) {
-    console.error('Error in nextQuestion():', e);
-    // Sebagai fallback, pergi ke results / tutup permainan
-    this.gameOver('Terjadi kesalahan');
-  }
-}
 
     //difficulty parameter 'reason'
-    gameOver(reason: string = 'Game Over') { //difficulty reason
+    gameOver(reason: string = 'Game Over') {
          console.log(`gameOver called: ${reason}`);
          if (!this.scene?.isActive(this.scene.key)) { return; }
          if (this.timerEvent) { this.timerEvent.remove(); this.timerEvent = null; }
          this.input.off(Phaser.Input.Events.POINTER_DOWN);
-         // ... matikan input lain ...
 
          this.activeOptionButtons = [];
 
          if (this.feedbackText && this.scene?.isActive(this.scene.key)) {
               try {
                   const color = reason.includes('Selesai') || reason.includes('Habis') ? '#FF0000' : '#0000FF';
-                  this.feedbackText.setText(reason).setColor(color); //difficulty reason
+                  this.feedbackText.setText(reason).setColor(color);
                 } catch(e) {/*...*/}
          } else { console.warn("feedbackText null/inactive in gameOver"); }
 
@@ -423,33 +471,31 @@ nextQuestion() {
    selectQuestions(difficulty: DifficultyKey, totalQuestions: number): Question[] { 
         const settings = this.difficultySettings[difficulty];
         if (!settings) { return []; }
-        //difficulty quizQuestions
-        if (!quizQuestions || quizQuestions.length === 0) { //difficulty quizQuestions
+        if (!quizQuestions || quizQuestions.length === 0) {
              console.error("Bank soal (quizQuestions) kosong!");
              return [];
         }
 
-        //difficulty quizQuestions
         const easyPool = this.shuffleArray(quizQuestions.filter(q => q.difficulty === 'mudah'));
         const mediumPool = this.shuffleArray(quizQuestions.filter(q => q.difficulty === 'menengah'));
         const hardPool = this.shuffleArray(quizQuestions.filter(q => q.difficulty === 'sulit'));
-        const proPool = this.shuffleArray(quizQuestions.filter(q => q.difficulty === 'pro')); 
+        const proPool = this.shuffleArray(quizQuestions.filter(q => q.difficulty === 'pro'));
 
         let finalQuestions: Question[] = [];
         const counts = {
-            mudah: Math.round(totalQuestions * settings.mix.mudah),       // Akses counts
-            menengah: Math.round(totalQuestions * settings.mix.menengah),
-            sulit: Math.round(totalQuestions * settings.mix.sulit),     
-            pro: Math.round(totalQuestions * settings.mix.sulit)        
+            mudah: Math.round(totalQuestions * (settings.mix.mudah ?? 0)),
+            menengah: Math.round(totalQuestions * (settings.mix.menengah ?? 0)),
+            sulit: Math.round(totalQuestions * (settings.mix.sulit ?? 0)),
+            pro: Math.round(totalQuestions * (settings.mix.pro ?? 0))
         };
 
-        let currentTotal = counts.mudah + counts.menengah + counts.sulit + counts.pro; 
+        let currentTotal = counts.mudah + counts.menengah + counts.sulit + counts.pro;
         while (currentTotal > totalQuestions) {
-             if (counts.pro > 0 && settings.mix.sulit > 0) counts.pro--;         
+             if (counts.pro > 0 && settings.mix.pro && settings.mix.pro > 0) counts.pro--;
              else if (counts.sulit > 0 && settings.mix.sulit > 0) counts.sulit--;
-             else if (counts.menengah > 0 && settings.mix.menengah > 0) counts.menengah--; 
-             else if (counts.mudah > 0 && settings.mix.mudah > 0) counts.mudah--;   
-             else { /* Fallback */
+             else if (counts.menengah > 0 && settings.mix.menengah > 0) counts.menengah--;
+             else if (counts.mudah > 0 && settings.mix.mudah > 0) counts.mudah--;
+             else {
                  if(counts.pro > 0) counts.pro--;
                  else if(counts.sulit > 0) counts.sulit--;
                  else if(counts.menengah > 0) counts.menengah--;
@@ -458,10 +504,10 @@ nextQuestion() {
              currentTotal--;
         }
         while (currentTotal < totalQuestions) {
-             if (settings.mix.sulit > 0) counts.pro++;           
-             else if (settings.mix.sulit > 0) counts.sulit++; 
-             else if (settings.mix.menengah > 0) counts.menengah++;
-             else counts.mudah++;                             
+             if (settings.mix.pro && settings.mix.pro > 0) counts.pro++;
+             else if (settings.mix.sulit && settings.mix.sulit > 0) counts.sulit++;
+             else if (settings.mix.menengah && settings.mix.menengah > 0) counts.menengah++;
+             else counts.mudah++;
              currentTotal++;
         }
 
@@ -476,26 +522,26 @@ nextQuestion() {
              mediumPool.slice(counts.menengah), 
              easyPool.slice(counts.mudah)    
         ];
-        let poolIndex = 0; //difficulty poolIndex
-        while(finalQuestions.length < totalQuestions && pools.some(p => p.length > 0)) { //difficulty pools
-             const pool = pools[poolIndex % pools.length]; //difficulty pools & poolIndex
+        let poolIndex = 0;
+        while(finalQuestions.length < totalQuestions && pools.some(p => p.length > 0)) {
+             const pool = pools[poolIndex % pools.length];
              if (pool && pool.length > 0) { finalQuestions.push(pool.shift()!); }
-             poolIndex++; //difficulty poolIndex
-             if (pools.every(p => p.length === 0) && poolIndex > pools.length * 2) break; //difficulty pools & poolIndex
+             poolIndex++;
+             if (pools.every(p => p.length === 0) && poolIndex > pools.length * 2) break;
         }
 
         finalQuestions = finalQuestions.slice(0, totalQuestions);
-        return this.shuffleArray(finalQuestions); // Panggil shuffleArray
+        return this.shuffleArray(finalQuestions);
     } //selectQuestions()
 
-  // --- Fungsi shuffleArray (Gunakan parameter array dan randomIndex) ---
-  private shuffleArray<T>(array: T[]): T[] { //difficulty array
+  // --- Fungsi shuffleArray ---
+  private shuffleArray<T>(array: T[]): T[] {
     let currentIndex = array.length, randomIndex;
     while (currentIndex !== 0) {
-      randomIndex = Math.floor(Math.random() * currentIndex); //difficulty randomIndex
+      randomIndex = Math.floor(Math.random() * currentIndex);
       currentIndex--;
       [array[currentIndex]!, array[randomIndex]!] = [
-        array[randomIndex]!, array[currentIndex]! //difficulty randomIndex
+        array[randomIndex]!, array[currentIndex]!
       ];
     }
     return array;
@@ -505,4 +551,39 @@ nextQuestion() {
   protected override playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
       super.playSound(key, config);
   }
+
+  // --- Helper untuk mode SURVIVE ---
+  private getSurviveQuestion(): Question | null {
+  if (!quizQuestions || quizQuestions.length === 0) return null;
+
+  // Tentukan pool difficulty berdasarkan elapsedTime
+  let poolDifficulty: DifficultyKey = 'mudah';
+  if (this.elapsedTime >= 300) poolDifficulty = 'sulit';
+  else if (this.elapsedTime >= 120) poolDifficulty = 'menengah';
+  else poolDifficulty = 'mudah';
+
+  // Kumpulkan pasangan {q, idx} yang cocok dan belum dipakai
+  const candidates = quizQuestions
+    .map((q, idx) => ({ q, idx }))
+    .filter(item => item.q.difficulty === poolDifficulty && !this.askedQuestionIds.has(item.idx));
+
+  if (candidates.length > 0) {
+    const pickIndex = Math.floor(Math.random() * candidates.length);
+    const pick = candidates[pickIndex];
+    if (pick) {
+      this.askedQuestionIds.add(pick.idx);
+      return pick.q;
+    }
+  }
+
+  // fallback: pilih index yang belum dipakai (gunakan findIndex agar tidak mendeklarasikan variabel 'q' yg tidak dipakai)
+  const fallbackIndex = quizQuestions.findIndex((_, idx) => !this.askedQuestionIds.has(idx));
+  if (fallbackIndex >= 0) {
+    this.askedQuestionIds.add(fallbackIndex);
+    return quizQuestions[fallbackIndex];
+  }
+
+  // jika tidak ada soal tersisa
+  return null;
+}
 }
