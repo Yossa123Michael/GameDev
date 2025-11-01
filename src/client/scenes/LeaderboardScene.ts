@@ -28,7 +28,7 @@ export class LeaderboardScene extends BaseScene {
         console.error('Failed to load leaderboard', error);
         this.entries = [];
       } else {
-        this.entries = data as any;
+        this.entries = (data || []) as any;
       }
     } catch (e) {
       console.error('loadLeaderboard error', e);

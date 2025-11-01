@@ -98,21 +98,20 @@ export class Game extends BaseScene {
 
     // --- Setup depending on mode ---
     if (this.mode === 'survive') {
-      // Survive: per-stage timer of perQuestionTime seconds, lives start at 3
-      this.perQuestionTime = 10;
-      this.elapsedTime = 0;
-      this.askedQuestionIds.clear();
-      this.lives = 3;
-      // pick first question according to elapsedTime (initially 0 -> mudah)
-      const firstQ = this.getSurviveQuestion();
-      if (!firstQ) {
-        console.error("Tidak ada soal untuk mode survive");
-        this.scene.start('PilihModeScene');
-        return;
-      }
-      this.questions = [firstQ];
-      this.currentQuestionIndex = 0;
-      this.remainingTime = this.perQuestionTime;
+  this.perQuestionTime = 10;
+  this.elapsedTime = 0;
+  this.askedQuestionIds.clear();
+  this.lives = 3;
+
+  const firstQ = this.getSurviveQuestion();
+  if (!firstQ) {
+    console.error("Tidak ada soal untuk mode survive");
+    this.scene.start('PilihModeScene');
+    return;
+  }
+  this.questions = [firstQ];
+  this.currentQuestionIndex = 0;
+  this.remainingTime = this.perQuestionTime;
     } else {
       // Normal mode: pick a batch using existing logic
       this.questions = (this as any).selectQuestions(this.difficulty, settings.totalQuestions);
@@ -556,13 +555,12 @@ export class Game extends BaseScene {
   private getSurviveQuestion(): Question | null {
   if (!quizQuestions || quizQuestions.length === 0) return null;
 
-  // Tentukan pool difficulty berdasarkan elapsedTime
   let poolDifficulty: DifficultyKey = 'mudah';
   if (this.elapsedTime >= 300) poolDifficulty = 'sulit';
   else if (this.elapsedTime >= 120) poolDifficulty = 'menengah';
   else poolDifficulty = 'mudah';
 
-  // Kumpulkan pasangan {q, idx} yang cocok dan belum dipakai
+  // kumpulkan kandidat yang sesuai dan belum dipakai
   const candidates = quizQuestions
     .map((q, idx) => ({ q, idx }))
     .filter(item => item.q.difficulty === poolDifficulty && !this.askedQuestionIds.has(item.idx));
@@ -570,20 +568,19 @@ export class Game extends BaseScene {
   if (candidates.length > 0) {
     const pickIndex = Math.floor(Math.random() * candidates.length);
     const pick = candidates[pickIndex];
-    if (pick) {
+    if (pick && typeof pick.idx === 'number') {
       this.askedQuestionIds.add(pick.idx);
       return pick.q;
     }
   }
 
-  // fallback: pilih index yang belum dipakai (gunakan findIndex agar tidak mendeklarasikan variabel 'q' yg tidak dipakai)
+  // fallback: cari index yang belum dipakai (gunakan findIndex supaya tidak menghasilkan undefined type)
   const fallbackIndex = quizQuestions.findIndex((_, idx) => !this.askedQuestionIds.has(idx));
   if (fallbackIndex >= 0) {
     this.askedQuestionIds.add(fallbackIndex);
-    return quizQuestions[fallbackIndex];
+    return quizQuestions[fallbackIndex]!;
   }
 
-  // jika tidak ada soal tersisa
   return null;
 }
 }
