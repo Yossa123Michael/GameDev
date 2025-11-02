@@ -1,108 +1,76 @@
-// @ts-nocheck
+// Edge Function: submit-score (Deno)
+// - Menangani CORS di semua response
+// - Menjawab OPTIONS 200 (preflight CORS)
+// - Insert skor ke tabel public.scores
+
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Versi untuk validasi/log
-const VERSION = "v5";
+const corsHeaders: HeadersInit = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
 
-// Hindari crash: jangan panggil createClient di top-level.
-// Tambah util untuk sanitasi & validasi URL.
-function sanitizeUrl(u?: string | null) {
-  if (!u) return undefined;
-  // trim spasi, hapus kutip di ujung, hilangkan slash di akhir
-  const s = u.trim().replace(/^['"]+|['"]+$/g, "").replace(/\/+$/, "");
-  return s || undefined;
+function json(body: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers ?? {});
+  for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v as string);
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(body), { ...init, headers });
 }
-
-function getEnv() {
-  // Prioritas SB_URL → SUPABASE_URL
-  const rawUrl = Deno.env.get("SB_URL") ?? Deno.env.get("SUPABASE_URL");
-  const url = sanitizeUrl(rawUrl);
-
-  // Prioritas SERVICE_ROLE_KEY → SUPABASE_SERVICE_ROLE_KEY
-  const rawKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const serviceRole = rawKey?.trim();
-
-  return { url, serviceRole, rawUrl, rawKey };
-}
-
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
-
-// Log boot agar mudah cek versi kode yang aktif
-console.log("submit-score BOOT", { VERSION });
 
 serve(async (req: Request) => {
-  // Health check: GET harus selalu berhasil jika worker tidak crash
+  // 1) Preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  // 2) Health check
   if (req.method === "GET") {
-    return json({ ok: true, code: "ALIVE", version: VERSION }, 200);
-  }
-  if (req.method !== "POST") return json({ error: "Method Not Allowed" }, 405);
-
-  const { url, serviceRole, rawUrl } = getEnv();
-
-  try {
-    if (!url || !serviceRole) {
-      console.error("MISSING_ENV", { hasUrl: !!url, hasServiceRole: !!serviceRole, rawUrl });
-      return json(
-        {
-          ok: false,
-          code: "MISSING_ENV",
-          message:
-            "Missing SB_URL/SUPABASE_URL or SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY in Edge Function environment.",
-        },
-        500,
-      );
-    }
-    // Wajib bentuk: https://<ref>.supabase.co
-    const re = /^https:\/\/[a-z0-9-]+\.supabase\.co$/;
-    if (!re.test(url)) {
-      console.error("URL_INVALID", { rawUrl, sanitized: url });
-      return json(
-        { ok: false, code: "URL_INVALID", message: "SB_URL must be like https://<ref>.supabase.co", sanitized: url },
-        500,
-      );
-    }
-    // Pastikan bisa di-parse
-    new URL(url);
-  } catch (e) {
-    console.error("URL_PARSE_ERROR", e);
-    return json({ ok: false, code: "URL_PARSE_ERROR", message: String(e) }, 500);
+    return json({ ok: true, code: "ALIVE", version: "v6" });
   }
 
-  // Buat client di dalam handler (aman dari crash startup)
-  const sb = createClient(url, serviceRole);
+  if (req.method !== "POST") {
+    return json({ ok: false, error: "Method Not Allowed" }, { status: 405 });
+  }
+
+  const SB_URL = Deno.env.get("SB_URL");
+  const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
+  if (!SB_URL || !SERVICE_ROLE_KEY) {
+    return json({ ok: false, error: "MISSING_ENV" }, { status: 500 });
+  }
+
+  let payload: any;
+  try {
+    payload = await req.json();
+  } catch {
+    return json({ ok: false, error: "INVALID_JSON" }, { status: 400 });
+  }
+
+  const name = String(payload?.name ?? "").trim().substring(0, 32);
+  const score = Number.isFinite(payload?.score) ? Math.round(payload.score) : NaN;
+  const mode = String(payload?.mode ?? "belajar");
+  const duration = Number.isFinite(payload?.duration) ? Math.round(payload.duration) : null;
+
+  if (!name || !Number.isFinite(score)) {
+    return json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
+  }
 
   try {
-    const body = (await req.json().catch(() => null)) as
-      | { name?: string; score?: number; mode?: string; duration?: number }
-      | null;
+    const supabase = createClient(SB_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-    if (!body || typeof body.name !== "string" || typeof body.score !== "number") {
-      return json({ error: "Invalid payload" }, 400);
-    }
+    const row: Record<string, unknown> = { name, score, mode };
+    if (typeof duration === "number") row.duration = duration;
 
-    const name = body.name.trim().slice(0, 32) || "Anonymous";
-    const score = Math.max(0, Math.round(body.score));
-    const mode = (body.mode || "belajar").slice(0, 16);
-    const duration = typeof body.duration === "number" ? Math.max(0, Math.round(body.duration)) : null;
-
-    // Anti-cheat sederhana
-    if (duration !== null) {
-      const maxPointsPerSecond = 20;
-      const maxAllowed = Math.max(5000, duration * maxPointsPerSecond);
-      if (score > maxAllowed) return json({ error: "Score rejected (implausible)" }, 400);
-    }
-
-    const { error } = await sb.from("scores").insert([{ name, score, mode, duration }]);
+    const { data, error } = await supabase.from("scores").insert(row).select("id").single();
     if (error) {
-      console.error("DB_INSERT_FAILED", error);
-      return json({ ok: false, code: "DB_INSERT_FAILED", message: error.message }, 500);
+      console.error("DB insert error", error);
+      return json({ ok: false, error: "DB_INSERT_FAILED" }, { status: 500 });
     }
 
-    return json({ ok: true, version: VERSION }, 200);
-  } catch (e: any) {
-    console.error("INTERNAL_ERROR", e?.message || e);
-    return json({ ok: false, code: "INTERNAL_ERROR", message: e?.message || "Internal error" }, 500);
+    return json({ ok: true, id: data?.id ?? null, version: "v6" });
+  } catch (e) {
+    console.error("Unhandled error", e);
+    return json({ ok: false, error: "UNEXPECTED" }, { status: 500 });
   }
 });

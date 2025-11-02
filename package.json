@@ -20,28 +20,33 @@
     "login": "devvit login --copy-paste",
     "launch": "npm run build && npm run deploy && devvit publish",
     "prettier": "prettier-package-json --write ./package.json && prettier --write .",
-    "type-check": "tsc --build"
+    "type-check": "tsc --build",
+    "preview:client": "cd src/client && vite preview --host --port 5173"
   },
   "dependencies": {
     "@devvit/web": "0.12.1",
-    "@supabase/supabase-js": "^2.77.0",
     "devvit": "0.12.1",
     "express": "5.1.0",
-    "phaser": "3.88.2"
+    "phaser": "3.88.2",
+    "@supabase/supabase-js": "^2.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "9.23.0",
+    "@eslint/js": "^9.39.0",
     "@types/express": "5.0.1",
     "concurrently": "9.1.2",
+    "eslint": "^9.39.0",
     "dotenv-cli": "8.0.0",
-    "eslint": "9.23.0",
     "globals": "15.15.0",
     "prettier": "3.5.3",
     "prettier-package-json": "2.8.0",
     "terser": "5.39.0",
     "typescript": "5.8.2",
     "typescript-eslint": "8.29.0",
-    "vite": "6.2.4",
+    "vite": "^6.4.1",
     "vitest": "3.1.1"
+  },
+  "overrides": {
+    "tmp": "^0.2.4",
+    "@eslint/plugin-kit": "^0.3.4"
   }
 }
