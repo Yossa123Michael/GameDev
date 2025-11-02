@@ -8,6 +8,7 @@ import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { AchievementScene } from './scenes/AchievementScene';
 import { OptionScene } from './scenes/OptionScene';
 import { CreditScene } from './scenes/CreditScene';
+import { ensureAnonAuth } from './lib/supabaseClient';
 
 //Scene Boot untuk Font
 class BootScene extends Phaser.Scene {
@@ -21,16 +22,14 @@ class BootScene extends Phaser.Scene {
 
   create() {
     (window as any).WebFont.load({
-      google: {
-        families: ['Nunito:700'] // font
-      },
-      active: () => {
-        console.log('Font Nunito loaded, starting MainMenuScene...');
+      google: { families: ['Nunito:700'] },
+      active: async () => {
+        await ensureAnonAuth();
         this.scene.start('MainMenuScene');
       },
-      inactive: () => {
-         console.warn('Gagal memuat font Nunito, menggunakan font default.');
-         this.scene.start('MainMenuScene');
+      inactive: async () => {
+        await ensureAnonAuth();
+        this.scene.start('MainMenuScene');
       }
     });
   }
@@ -50,6 +49,7 @@ const config: Phaser.Types.Core.GameConfig = {
     BootScene,
     MainMenuScene,
     PilihModeScene,
+    // Pastikan scene ini ada, sesuai error “Scene key not found”
     PilihKesulitanScene,
     Game,
     ResultsScene,

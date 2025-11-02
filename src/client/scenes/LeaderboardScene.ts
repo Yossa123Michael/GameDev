@@ -9,13 +9,15 @@ export class LeaderboardScene extends BaseScene {
   constructor() { super('LeaderboardScene'); }
 
   public override async create() {
+    console.log('[LeaderboardScene] create()');
     super.create();
-    super.createCommonButtons('MainMenuScene');
+    this.createCommonButtons('MainMenuScene');
     await this.loadLeaderboard();
     this.draw();
   }
 
   private async loadLeaderboard(limit = 10) {
+    console.log('[LeaderboardScene] loadLeaderboard()');
     try {
       const { data, error } = await supabase
         .from('scores')
@@ -45,17 +47,20 @@ export class LeaderboardScene extends BaseScene {
 
     const startY = 140;
     const rowH = 36;
-    this.entries.forEach((e, i) => {
-      const y = startY + i * rowH;
-      const rank = this.add.text(this.scale.width * 0.08, y, `${i + 1}.`, { fontFamily: 'Nunito', fontSize: '20px' }).setOrigin(0, 0.5);
-      const name = this.add.text(this.scale.width * 0.18, y, e.name, { fontFamily: 'Nunito', fontSize: '20px' }).setOrigin(0, 0.5);
-      const score = this.add.text(this.scale.width * 0.88, y, `${e.score}`, { fontFamily: 'Nunito', fontSize: '20px' }).setOrigin(1, 0.5);
-      this.sceneContentGroup.addMultiple([rank, name, score]);
-    });
 
     if (this.entries.length === 0) {
       const info = this.add.text(this.centerX, this.scale.height * 0.5, 'Leaderboard kosong', { fontFamily: 'Nunito', fontSize: '18px', color: '#666' }).setOrigin(0.5);
       this.sceneContentGroup.add(info);
+      console.log('[LeaderboardScene] entries=0');
+      return;
     }
+
+    this.entries.forEach((e, i) => {
+      const y = startY + i * rowH;
+      const rank = this.add.text(this.scale.width * 0.08, y, `${i + 1}.`, { fontFamily: 'Nunito', fontSize: '20px', color: '#000' }).setOrigin(0, 0.5);
+      const name = this.add.text(this.scale.width * 0.18, y, e.name, { fontFamily: 'Nunito', fontSize: '20px', color: '#000' }).setOrigin(0, 0.5);
+      const score = this.add.text(this.scale.width * 0.88, y, `${e.score}`, { fontFamily: 'Nunito', fontSize: '20px', color: '#000' }).setOrigin(1, 0.5);
+      this.sceneContentGroup.addMultiple([rank, name, score]);
+    });
   }
 }

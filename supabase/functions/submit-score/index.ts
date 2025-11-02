@@ -1,8 +1,5 @@
 // Edge Function: submit-score (Deno)
-// - Menangani CORS di semua response
-// - Menjawab OPTIONS 200 (preflight CORS)
-// - Insert skor ke tabel public.scores
-
+// CORS lengkap + OPTIONS 200 + GET health + POST insert skor
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -20,45 +17,25 @@ function json(body: unknown, init: ResponseInit = {}) {
 }
 
 serve(async (req: Request) => {
-  // 1) Preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  // 2) Health check
-  if (req.method === "GET") {
-    return json({ ok: true, code: "ALIVE", version: "v6" });
-  }
-
-  if (req.method !== "POST") {
-    return json({ ok: false, error: "Method Not Allowed" }, { status: 405 });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "GET") return json({ ok: true, code: "ALIVE", version: "v6" });
+  if (req.method !== "POST") return json({ ok: false, error: "Method Not Allowed" }, { status: 405 });
 
   const SB_URL = Deno.env.get("SB_URL");
   const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
-  if (!SB_URL || !SERVICE_ROLE_KEY) {
-    return json({ ok: false, error: "MISSING_ENV" }, { status: 500 });
-  }
+  if (!SB_URL || !SERVICE_ROLE_KEY) return json({ ok: false, error: "MISSING_ENV" }, { status: 500 });
 
   let payload: any;
-  try {
-    payload = await req.json();
-  } catch {
-    return json({ ok: false, error: "INVALID_JSON" }, { status: 400 });
-  }
+  try { payload = await req.json(); } catch { return json({ ok: false, error: "INVALID_JSON" }, { status: 400 }); }
 
   const name = String(payload?.name ?? "").trim().substring(0, 32);
   const score = Number.isFinite(payload?.score) ? Math.round(payload.score) : NaN;
   const mode = String(payload?.mode ?? "belajar");
   const duration = Number.isFinite(payload?.duration) ? Math.round(payload.duration) : null;
-
-  if (!name || !Number.isFinite(score)) {
-    return json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
-  }
+  if (!name || !Number.isFinite(score)) return json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
 
   try {
     const supabase = createClient(SB_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-
     const row: Record<string, unknown> = { name, score, mode };
     if (typeof duration === "number") row.duration = duration;
 
@@ -67,7 +44,6 @@ serve(async (req: Request) => {
       console.error("DB insert error", error);
       return json({ ok: false, error: "DB_INSERT_FAILED" }, { status: 500 });
     }
-
     return json({ ok: true, id: data?.id ?? null, version: "v6" });
   } catch (e) {
     console.error("Unhandled error", e);
