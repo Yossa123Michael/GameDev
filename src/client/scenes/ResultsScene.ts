@@ -9,16 +9,17 @@ export class ResultsScene extends BaseScene {
   private mode = 'belajar';
   private duration: number | undefined;
 
-  private titleText?: Phaser.GameObjects.Text;
-  private scoreText?: Phaser.GameObjects.Text;
-  private modeText?: Phaser.GameObjects.Text;
-  private durText?: Phaser.GameObjects.Text;
+  private titleText: Phaser.GameObjects.Text | undefined;
+  private scoreText: Phaser.GameObjects.Text | undefined;
+  private modeText: Phaser.GameObjects.Text | undefined;
+  private durText: Phaser.GameObjects.Text | undefined;
 
-  private submitBtn?: Phaser.GameObjects.Container;
-  private submitStatus?: Phaser.GameObjects.Text;
+  private submitBtn: Phaser.GameObjects.Container | undefined;
+  private submitStatus: Phaser.GameObjects.Text | undefined;
 
   private isSubmitting = false;
   private hasAutoStarted = false;
+  private alive = true;
 
   constructor() { super('ResultsScene'); }
 
@@ -31,12 +32,14 @@ export class ResultsScene extends BaseScene {
 
   public override create() {
     super.create();
+    this.alive = true;
+
     super.createCommonButtons('MainMenuScene');
 
     this.buildTexts();
     this.buildButton();
 
-    // Auto submit (tanpa klik)
+    // Auto submit → langsung pindah ke Leaderboard (tanpa delay) setelah sukses/skip
     this.startAutoSubmit();
 
     this.events.once('shutdown', this.cleanup, this);
@@ -47,73 +50,60 @@ export class ResultsScene extends BaseScene {
     if (this.hasAutoStarted) return;
     this.hasAutoStarted = true;
 
-    this.setStatus('Mengirim skor...');
-    if (this.submitBtn) this.submitBtn.setVisible(false); // sembunyikan saat auto
+    this.safeSetStatus('Mengirim skor...');
+    if (this.submitBtn) this.submitBtn.setVisible(false);
 
-    // Retry 3x
-    const ok = await this.attemptSubmitWithRetry(3, [0, 500, 900]);
+    const ok = await this.safeSubmitOnce();
+    if (!this.alive) return;
+
     if (ok) {
-      // Beri waktu indexing
-      this.setStatus('Terkirim! Membuka Leaderboard...');
-      this.time.delayedCall(800, () => this.scene.start('LeaderboardScene'));
+      // Pindah segera agar terasa cepat
+      this.scene.start('LeaderboardScene');
     } else {
-      this.setStatus('Gagal mengirim. Coba lagi.');
+      this.safeSetStatus('Gagal mengirim. Coba lagi.');
       if (this.submitBtn) this.submitBtn.setVisible(true);
       this.setButtonEnabled(true);
     }
   }
 
-  private async attemptSubmitWithRetry(times: number, delaysMs: number[]) {
-    for (let i = 0; i < times; i++) {
-      const ok = await this.safeSubmitOnce();
-      if (ok) return true;
-      const delay = delaysMs[i] ?? 700;
-      await new Promise(r => setTimeout(r, delay));
-    }
-    return false;
-  }
-
   private async safeSubmitOnce(): Promise<boolean> {
-    if (this.isSubmitting) return false;
+    if (this.isSubmitting || !this.alive) return false;
     this.isSubmitting = true;
     try {
       const res = await submitScoreViaFunction(this.playerName, this.finalScore, this.mode, this.duration);
-      if (!res.ok) return false;
+      if (!this.alive) return false;
 
+      if (!res.ok) {
+        this.safeSetStatus('Gagal mengirim skor');
+        return false;
+      }
       if (res.skipped) {
-        // Dua skenario skip yang dianggap "sukses" bagi user:
-        // - not_higher: skor baru <= best → leaderboard tidak berubah (sesuai keinginanmu)
-        // - no_user: anon auth belum siap → tidak menyimpan, tapi juga tidak menurunkan leaderboard
-        const msg = res.reason === 'not_higher'
-          ? 'Skor tidak melampaui rekor. Leaderboard tetap.'
-          : 'Sesi belum siap. Leaderboard tetap.';
-        this.setStatus(msg);
+        // not_higher atau no_user → anggap sukses
+        this.safeSetStatus('Leaderboard tetap.');
       }
       return true;
-    } catch (e) {
+    } catch {
+      if (this.alive) this.safeSetStatus('Gagal mengirim skor');
       return false;
     } finally {
       this.isSubmitting = false;
     }
   }
 
-  // Tombol fallback jika auto-submit gagal
   private handleSubmitClick() {
-    if (this.isSubmitting) return;
+    if (this.isSubmitting || !this.alive) return;
     this.setButtonEnabled(false);
-    this.setStatus('Mengirim...');
+    this.safeSetStatus('Mengirim...');
     this.safeSubmitOnce().then(ok => {
-      if (ok) {
-        this.setStatus('Terkirim! Membuka Leaderboard...');
-        this.time.delayedCall(800, () => this.scene.start('LeaderboardScene'));
-      } else {
-        this.setStatus('Gagal mengirim. Coba lagi.');
+      if (!this.alive) return;
+      if (ok) this.scene.start('LeaderboardScene');
+      else {
+        this.safeSetStatus('Gagal mengirim. Coba lagi.');
         this.setButtonEnabled(true);
       }
     });
   }
 
-  // UI
   private buildTexts() {
     this.titleText?.destroy(); this.scoreText?.destroy(); this.modeText?.destroy(); this.durText?.destroy();
     this.submitStatus?.destroy();
@@ -142,18 +132,17 @@ export class ResultsScene extends BaseScene {
   }
 
   private buildButton() {
-    if (this.submitBtn) { try { this.submitBtn.destroy(true); } catch {} this.submitBtn = undefined; }
+    if (this.submitBtn) { try { this.submitBtn.destroy(true); } catch {} }
     const y = this.scale.height * 0.70;
     const btn = this.createButton(y, 'Kirim ke Leaderboard', () => this.handleSubmitClick());
     btn.setName('submit_button_results');
     btn.setDepth(10);
-    this.sceneContentGroup.add(btn);
+    if (this.sceneContentGroup) this.sceneContentGroup.add(btn);
     this.submitBtn = btn;
     this.setButtonEnabled(true);
   }
-
   private setButtonEnabled(enabled: boolean) {
-    if (!this.submitBtn) return;
+    if (!this.submitBtn || !this.alive) return;
     const textObj = this.submitBtn.getAt(1) as Phaser.GameObjects.Text | undefined;
     const zone = this.submitBtn.getAt(2) as Phaser.GameObjects.Zone | undefined;
     if (enabled) {
@@ -164,12 +153,17 @@ export class ResultsScene extends BaseScene {
     }
   }
 
-  private setStatus(msg: string) {
-    this.submitStatus?.setText(msg);
+  private safeSetStatus(msg: string) {
+    if (!this.alive) return;
+    const t = this.submitStatus;
+    if (t && t.scene) {
+      try { t.setText(msg); } catch {}
+    }
   }
 
   public override draw() {
     super.draw();
+
     this.titleText?.setPosition(this.centerX, 90);
     this.scoreText?.setPosition(this.centerX, this.scale.height * 0.40).setText(`Skor: ${this.finalScore}`);
     this.modeText?.setPosition(this.centerX, this.scale.height * 0.48).setText(`Mode: ${this.mode}`);
@@ -191,19 +185,22 @@ export class ResultsScene extends BaseScene {
 
       if (g) this.updateButtonGraphics(g, width, height, 0xffffff, 0x000000, 3, radius);
       if (txt) {
-        txt.setStyle({
-          fontFamily: 'Nunito',
-          fontSize: `${Math.max(16, Math.floor(height * 0.38))}px`,
-          color: '#000',
-          align: 'center',
-          wordWrap: { width: Math.floor(width * 0.9) }
-        }).setOrigin(0.5);
+        try {
+          txt.setStyle({
+            fontFamily: 'Nunito',
+            fontSize: `${Math.max(16, Math.floor(height * 0.38))}px`,
+            color: '#000',
+            align: 'center',
+            wordWrap: { width: Math.floor(width * 0.9) }
+          }).setOrigin(0.5);
+        } catch {}
       }
       if (zone) zone.setSize(width, height).setPosition(0, 0);
     }
   }
 
   private cleanup() {
+    this.alive = false;
     try { this.submitBtn?.destroy(true); } catch {}
     try { this.submitStatus?.destroy(); } catch {}
     this.isSubmitting = false;

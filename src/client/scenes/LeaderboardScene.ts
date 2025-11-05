@@ -3,15 +3,21 @@ import { supabase } from '../lib/supabaseClient';
 import { getLastSubmission } from '../lib/submitScore';
 
 type Entry = { id?: number; name: string; score: number; created_at: string; user_id?: string };
-type UserBest = { name: string; score: number; created_at: string; rank: number };
+type UserBest = { name: string; score: number; created_at: string; rank?: number };
 type LastSub = { user_id: string | null; name: string; score: number; created_at: string };
+
+function getDeviceBest(): number | null {
+  try { const raw = localStorage.getItem('rk:best'); return raw ? Number(raw) : null; } catch { return null; }
+}
 
 export class LeaderboardScene extends BaseScene {
   private entries: Entry[] = [];
   private myBest: UserBest | null = null;
   private currentUserId: string | null = null;
   private lastSub: LastSub | null = null;
-  // index user self di tampilan Top 100 (untuk sinkronisasi baris bawah)
+  private deviceBest: number | null = null;
+
+  // index baris yang akan dihijaukan di Top 100
   private inTop100Index: number | null = null;
 
   // UI / scroll
@@ -30,33 +36,84 @@ export class LeaderboardScene extends BaseScene {
     this.applyScroll(dy * 0.6);
   };
 
+  private alive = true;
+
   constructor() { super('LeaderboardScene'); }
 
   public override async create() {
     super.create();
     this.createCommonButtons('MainMenuScene');
 
+    this.alive = true;
     this.showStatus('Loading leaderboard...');
     this.scrollY = 0;
     this.inTop100Index = null;
 
-    await this.loadData().catch(err => {
-      console.error('loadData threw', err);
-      this.showStatus('Failed to load leaderboard');
-    });
+    await this.loadDataFast(); // cepat: 1 query top100 + auth
+
+    if (!this.alive) return;
 
     this.setupScrollArea();
 
-    try { this.draw(); } catch (e) {
-      console.warn('initial draw() failed:', e);
-      this.showStatus('Rendering failed');
+    // Render cepat (tanpa clear penuh)
+    this.safeDraw();
+
+    // Jadwalkan re-render kecil untuk berjaga
+    this.time.delayedCall(50, () => this.safeDraw());
+    this.time.delayedCall(150, () => this.safeDraw());
+
+    // Rank global dihitung “belakangan” agar UI cepat
+    this.computeRankInBackground();
+
+    this.events.once('shutdown', () => { this.alive = false; this.cleanupListeners(); });
+    this.events.once('destroy',  () => { this.alive = false; this.cleanupListeners(); });
+  }
+
+  // Render tanpa super.draw() supaya tidak blank jika ada error di tengah
+  private safeDraw() {
+    if (!this.alive) return;
+
+    if (!this.listContainer || !this.maskGraphics || !this.scrollArea) {
+      this.setupScrollArea();
+      this.time.delayedCall(0, () => { if (this.alive) this.safeDraw(); });
+      return;
     }
 
-    this.events.once('shutdown', this.cleanupListeners, this);
-    this.events.once('destroy', this.cleanupListeners, this);
+    try {
+      // Hapus judul lama
+      const prevTitle = this.children.getByName?.('leaderboard_title');
+      if (prevTitle) { try { prevTitle.destroy(); } catch {} }
+
+      // Bersihkan isi listContainer (tanpa menghapus containernya)
+      const copy = this.listContainer.list.slice();
+      copy.forEach(c => { try { c.destroy(true); } catch {} });
+
+      // Hapus fixed row lama
+      const ex = this.children.getByName?.('fixed_my_row');
+      if (ex) { try { ex.destroy(); } catch {} }
+
+      // Judul
+      const title = this.add.text(this.centerX, 80, 'Leaderboard', {
+        fontFamily: 'Nunito', fontSize: '36px', color: '#000'
+      }).setOrigin(0.5);
+      title.setName('leaderboard_title');
+      try { this.sceneContentGroup?.add(title); } catch { this.add.existing(title); }
+
+      // Build list + layout + fixed row
+      this.buildList();
+      this.layoutList();
+      this.renderFixedMyRow();
+
+      this.showStatus(null);
+    } catch (e) {
+      console.warn('safeDraw failed, scheduling retry:', e);
+      this.showStatus('Rendering...');
+      this.time.delayedCall(80, () => { if (this.alive) this.safeDraw(); });
+    }
   }
 
   private showStatus(message: string | null) {
+    if (!this.alive) return;
     if (!this.statusText && message) {
       this.statusText = this.add.text(this.centerX, this.scale.height * 0.5, message, {
         fontFamily: 'Nunito', fontSize: '20px', color: '#666'
@@ -68,30 +125,35 @@ export class LeaderboardScene extends BaseScene {
     }
   }
 
-  private async loadData() {
+  // Muat data cepat: top100 + auth secara paralel. Tanpa hitung rank dulu.
+  private async loadDataFast() {
     this.entries = [];
     this.myBest = null;
     this.currentUserId = null;
-    this.lastSub = getLastSubmission();
     this.inTop100Index = null;
+    this.lastSub = getLastSubmission();
+    this.deviceBest = getDeviceBest();
 
-    // Ambil lebih banyak lalu dedup per user_id supaya tidak dobel
-    const fetchLimit = 400;
-    const { data: raw, error: e1 } = await supabase
-      .from('scores')
-      .select('id,name,score,created_at,user_id')
-      .order('score', { ascending: false })
-      .order('created_at', { ascending: true })
-      .limit(fetchLimit);
+    // Jalankan paralel: top100 dan auth
+    const [topRes, authRes] = await Promise.all([
+      supabase
+        .from('scores')
+        .select('id,name,score,created_at,user_id')
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(600),
+      supabase.auth.getUser()
+    ]);
 
-    if (e1) throw e1;
+    if (topRes.error) throw topRes.error;
 
-    const seenUids = new Set<string>();
+    // Dedup per user_id agar 1 user hanya 1 baris
+    const seen = new Set<string>();
     const unique: Entry[] = [];
-    for (const e of (raw || []) as Entry[]) {
+    for (const e of (topRes.data || []) as Entry[]) {
       if (e.user_id) {
-        if (seenUids.has(e.user_id)) continue;
-        seenUids.add(e.user_id);
+        if (seen.has(e.user_id)) continue;
+        seen.add(e.user_id);
         unique.push(e);
       } else {
         unique.push(e);
@@ -100,57 +162,63 @@ export class LeaderboardScene extends BaseScene {
     }
     this.entries = unique;
 
-    const { data: userData } = await supabase.auth.getUser();
-    const uid = (userData as any)?.user?.id ?? null;
+    const uid = (authRes.data as any)?.user?.id ?? null;
     this.currentUserId = uid;
 
+    // 1) Coba cari index by user_id (akurat)
     if (uid) {
       const idx = this.entries.findIndex(en => en.user_id === uid);
       if (idx >= 0) {
+        this.inTop100Index = idx;
         const en = this.entries[idx]!;
-        this.inTop100Index = idx; // simpan index untuk sinkron fixed row
         this.myBest = { name: en.name, score: en.score, created_at: en.created_at, rank: idx + 1 };
-      } else {
-        // Tidak ada di Top 100 → hitung rank global dari skor terbaik user
-        const { data: best, error: e2 } = await supabase
-          .from('scores')
-          .select('name,score,created_at')
-          .eq('user_id', uid)
-          .order('score', { ascending: false })
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (!e2 && best) {
-          const myScore = (best as any).score as number;
-          const myCreated = (best as any).created_at as string;
-          const q1 = await supabase.from('scores').select('id', { count: 'exact', head: true }).gt('score', myScore);
-          const higher = q1.count || 0;
-          const q2 = await supabase.from('scores').select('id', { count: 'exact', head: true }).eq('score', myScore).lt('created_at', myCreated);
-          const earlier = q2.count || 0;
-          this.myBest = { name: (best as any).name, score: myScore, created_at: myCreated, rank: higher + earlier + 1 };
-        } else if (this.lastSub && this.lastSub.user_id === uid) {
-          // fallback lokal bila record lama belum attach user_id
-          const myScore = this.lastSub.score;
-          const myCreated = this.lastSub.created_at;
-          const q1 = await supabase.from('scores').select('id', { count: 'exact', head: true }).gt('score', myScore);
-          const higher = q1.count || 0;
-          const q2 = await supabase.from('scores').select('id', { count: 'exact', head: true }).eq('score', myScore).lt('created_at', myCreated);
-          const earlier = q2.count || 0;
-          this.myBest = { name: this.lastSub.name, score: myScore, created_at: myCreated, rank: higher + earlier + 1 };
-        }
       }
     }
 
+    // 2) Jika belum ketemu baris user di Top 100, fallback highlight ke baris pertama yang skornya == deviceBest
+    if (this.inTop100Index == null && this.deviceBest != null) {
+      const idx2 = this.entries.findIndex(en => en.score === this.deviceBest!);
+      if (idx2 >= 0) {
+        this.inTop100Index = idx2;
+        const en = this.entries[idx2]!;
+        // myBest ditampilkan minimal (tanpa rank dulu, supaya cepat)
+        this.myBest = { name: en.name || this.lastSub?.name || 'You', score: en.score, created_at: en.created_at };
+      }
+    }
+
+    // 3) Jika tetap tidak ketemu Top 100, namun ada deviceBest → tampilkan fixed-row saja (tanpa rank dulu)
+    if (!this.myBest && this.deviceBest != null) {
+      this.myBest = { name: this.lastSub?.name || 'You', score: this.deviceBest, created_at: '' };
+    }
+
     this.showStatus(null);
-    this.scrollY = 0;
+
     console.log('Leaderboard loaded:', {
       count: this.entries.length,
       myBest: this.myBest,
       inTop100Index: this.inTop100Index,
       uid: this.currentUserId,
+      deviceBest: this.deviceBest,
       lastSub: this.lastSub
     });
+  }
+
+  // Hitung rank di latar belakang (tidak memblokir render cepat)
+  private async computeRankInBackground() {
+    if (!this.alive) return;
+    // Jika sudah ada di Top100, rank sudah diketahui.
+    if (this.inTop100Index != null) return;
+    if (!this.myBest?.score) return;
+
+    try {
+      const q = await supabase.from('scores').select('id', { count: 'exact', head: true }).gt('score', this.myBest.score);
+      const higher = q.count || 0;
+      // Update rank dan perbarui fixed row (tanpa rebuild list)
+      this.myBest.rank = higher + 1;
+      if (this.alive) this.renderFixedMyRow();
+    } catch (e) {
+      // abaikan jika gagal; UI tetap jalan
+    }
   }
 
   private setupScrollArea() {
@@ -177,7 +245,6 @@ export class LeaderboardScene extends BaseScene {
 
     if (!this.wheelBound) { this.input.on('wheel', this.wheelHandler); this.wheelBound = true; }
 
-    // Reset drag listeners
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.off(Phaser.Input.Events.POINTER_UP);
     this.input.off(Phaser.Input.Events.GAME_OUT);
@@ -188,7 +255,7 @@ export class LeaderboardScene extends BaseScene {
       this.scrollDrag.baseScroll = this.scrollY;
     });
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
-      if (!this.scrollDrag.active) return;
+      if (!this.scrollDrag.active || !this.alive) return;
       const delta = pointer.y - this.scrollDrag.startY;
       this.scrollY = this.scrollDrag.baseScroll - delta;
       this.clampScroll();
@@ -211,30 +278,11 @@ export class LeaderboardScene extends BaseScene {
     if (this.scrollY > maxScroll) this.scrollY = maxScroll;
   }
 
-  public override draw() {
-    super.draw();
-
-    if (!this.listContainer || !this.maskGraphics || !this.scrollArea) this.setupScrollArea();
-
-    const prevTitle = this.children.getByName?.('leaderboard_title');
-    if (prevTitle) { try { prevTitle.destroy(); } catch {} }
-
-    const title = this.add.text(this.centerX, 80, 'Leaderboard', {
-      fontFamily: 'Nunito', fontSize: '36px', color: '#000'
-    }).setOrigin(0.5);
-    title.setName('leaderboard_title');
-    try { this.sceneContentGroup?.add(title); } catch { this.add.existing(title); }
-
-    this.buildList();
-    this.layoutList();
-    this.renderFixedMyRow();
-  }
+  // draw() dikosongkan; gunakan safeDraw
+  public override draw() {}
 
   private buildList() {
     if (!this.listContainer) return;
-
-    const copy = this.listContainer.list.slice();
-    copy.forEach(c => { try { c.destroy(true); } catch {} });
 
     const left = Math.round(this.scale.width * 0.06);
     const width = Math.round(this.scale.width * 0.88);
@@ -256,41 +304,16 @@ export class LeaderboardScene extends BaseScene {
       return;
     }
 
-    // Baris pertama tepat di bawah header
     y = rowH + gap;
 
-    // Jika sudah ada match via user_id, kita tidak akan melakukan fallback highlight
-    const hasIdMatch = this.inTop100Index !== null;
-    // Agar fallback tidak menandai lebih dari satu baris
-    let usedFallbackHighlight = false;
-
     this.entries.forEach((en, i) => {
-      let isMe = false;
-
-      // Prioritas 1: user_id cocok (pasti hanya satu karena entries sudah didedup per user_id)
-      if (this.currentUserId && en.user_id === this.currentUserId) {
-        isMe = true;
-      } else if (!hasIdMatch && !usedFallbackHighlight && this.lastSub) {
-        // Prioritas 2: fallback sekali untuk record tanpa user_id yang cocok nama+skor
-        if (!en.user_id && en.name === this.lastSub.name && en.score === this.lastSub.score) {
-          isMe = true;
-          usedFallbackHighlight = true;
-          // Set index agar fixed row bawah sinkron dengan daftar
-          this.inTop100Index = i;
-          // Jika belum ada myBest, set berdasarkan tampilan daftar (agar sinkron)
-          if (!this.myBest) {
-            this.myBest = { name: en.name, score: en.score, created_at: en.created_at, rank: i + 1 };
-          }
-        }
-      }
-
+      const isMe = (this.inTop100Index != null && i === this.inTop100Index);
       const row = this.createRow(left, y, width, {
         rank: `${i + 1}.`,
         name: en.name || 'Player',
         score: `${en.score}`
       }, false, isMe);
       this.listContainer.add(row);
-
       y += rowH + gap;
     });
 
@@ -302,10 +325,6 @@ export class LeaderboardScene extends BaseScene {
     const ex = this.children.getByName?.('fixed_my_row');
     if (ex) { try { ex.destroy(); } catch {} }
 
-    // Baris fixed BAWAH selalu ditampilkan, dan harus SINKRON:
-    // - Jika inTop100Index ada -> ambil rank/score dari entries[inTop100Index]
-    // - Jika tidak ada, tapi myBest ada -> pakai rank global (<=1000)
-    // - Kalau masih tidak ada, tampilkan placeholder "You - -"
     const left = Math.round(this.scale.width * 0.06);
     const width = Math.round(this.scale.width * 0.88);
     const top = 120;
@@ -322,13 +341,9 @@ export class LeaderboardScene extends BaseScene {
       nameText = en.name || 'You';
       scoreText = `${en.score}`;
     } else if (this.myBest) {
-      rankText = this.myBest.rank <= 1000 ? `${this.myBest.rank}.` : '-';
+      rankText = (this.myBest.rank && this.myBest.rank <= 1000) ? `${this.myBest.rank}.` : '-';
       nameText = this.myBest.name || 'You';
       scoreText = `${this.myBest.score}`;
-    } else if (this.lastSub) {
-      rankText = '-';
-      nameText = 'You';
-      scoreText = '-';
     }
 
     const myRow = this.createRow(left, yFixed, width, {
@@ -386,7 +401,12 @@ export class LeaderboardScene extends BaseScene {
     if (mg) { mg.clear(); mg.fillStyle(0xffffff, 1); mg.fillRect(left, top, width, height); }
 
     const sa = this.scrollArea;
-    if (sa) { sa.setPosition(left + width / 2, top + height / 2); sa.setSize(width, height); }
+    if (sa && (sa as any).scene) {
+      try {
+        sa.setPosition(left + width / 2, top + height / 2);
+        sa.setSize(width, height);
+      } catch {}
+    }
   }
 
   private cleanupListeners() {

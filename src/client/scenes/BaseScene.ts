@@ -1,5 +1,22 @@
 import Phaser from 'phaser';
 
+// Sederhana: baca settings dari localStorage (agar tidak memaksa SettingsManager)
+type SettingsLite = {
+  musicOn?: boolean;
+  musicVol?: number;
+  sfxOn?: boolean;
+  sfxVol?: number;
+  graphics?: 'normal' | 'low';
+  vibration?: boolean;
+};
+function getSettingsLite(): SettingsLite {
+  try {
+    const raw = localStorage.getItem('rk:settings');
+    if (!raw) return {};
+    return JSON.parse(raw) as SettingsLite;
+  } catch { return {}; }
+}
+
 export class BaseScene extends Phaser.Scene {
   protected centerX!: number;
   protected centerY!: number;
@@ -60,11 +77,15 @@ export class BaseScene extends Phaser.Scene {
       this.handleResize(this.scale.gameSize);
     });
 
+    // Terapkan settings sederhana
+    const s = getSettingsLite();
+    BaseScene.isMusicOn = s.musicOn ?? BaseScene.isMusicOn;
+
     // Musik global
     if (!BaseScene.backgroundMusic && BaseScene.isMusicOn) {
       if (this.cache.audio.exists('bgm')) {
-        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 });
-        try { BaseScene.backgroundMusic.play(); } catch { console.warn('Autoplay blocked; music will play after user gesture.'); }
+        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: s.musicVol ?? 0.5 });
+        try { BaseScene.backgroundMusic.play(); } catch {}
       } else {
         console.warn("Audio key 'bgm' not found.");
       }
@@ -73,20 +94,20 @@ export class BaseScene extends Phaser.Scene {
     } else if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) {
       BaseScene.backgroundMusic.resume();
     }
+    // Set volume aman (hindari TS complain)
+    try { (BaseScene.backgroundMusic as any)?.setVolume?.(s.musicVol ?? 0.5); } catch {}
+
+    // Graphics quality sederhana
+    try {
+      if (s.graphics === 'low') {
+        (this.textures as any).setDefaultFilter?.(Phaser.Textures.FilterMode.NEAREST);
+      } else {
+        (this.textures as any).setDefaultFilter?.(Phaser.Textures.FilterMode.LINEAR);
+      }
+    } catch {}
 
     this.createCommonButtons();
 
-    this.input?.once?.('pointerdown', () => {
-  try {
-    // Memastikan audio context aktif setelah gesture
-    this.sound.unlock();
-    if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) {
-      BaseScene.backgroundMusic.play();
-    }
-  } catch {}
-});
-
-    // Sinkronkan ikon musik (type-guard agar TS tidak error)
     const key = BaseScene.isMusicOn ? 'music_on' : 'music_off';
     if (this.musicButton && 'setTexture' in this.musicButton) {
       if (this.textures.exists(key)) {
@@ -96,14 +117,26 @@ export class BaseScene extends Phaser.Scene {
       }
       try { this.musicButton.setName('musicButton_base'); } catch {}
     }
-
     if (this.backButton) try { this.backButton.setName('backButton_base'); } catch {}
+
+    // Unlock audio setelah gesture pertama
+    this.input?.once?.('pointerdown', () => {
+      try {
+        this.sound.unlock();
+        if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) {
+          BaseScene.backgroundMusic.play();
+        }
+      } catch {}
+    });
 
     console.log('BaseScene create finished.');
 
-    if (typeof (this as any).draw === 'function') {
-      try { (this as any).draw(); } catch (e) { console.warn('initial draw() failed:', e); }
-    }
+    // Tunda draw pertama satu tick
+    this.time.delayedCall(0, () => {
+      if (typeof (this as any).draw === 'function') {
+        try { (this as any).draw(); } catch (e) { console.warn('deferred draw() failed:', e); }
+      }
+    });
   }
 
   protected updateCenter() {
@@ -112,7 +145,6 @@ export class BaseScene extends Phaser.Scene {
   }
 
   protected handleResize = (gameSize: Phaser.Structs.Size) => {
-    // @ts-ignore
     if (!this.cameras || !this.cameras.main || !this.scale) return;
 
     const { width, height } = gameSize;
@@ -137,9 +169,8 @@ export class BaseScene extends Phaser.Scene {
   }
 
   protected createCommonButtons(targetBackSceneKey?: string) {
-    // Bersihkan ikon lama untuk mencegah duplikasi
     try { if (this.musicButton) { (this.musicButton as any).destroy?.(); this.musicButton = undefined; } } catch {}
-    try { if (this.backButton) { (this.backButton as any).destroy?.(); this.backButton = undefined; } } catch {}
+    try { if (this.backButton)  { (this.backButton  as any).destroy?.(); this.backButton  = undefined; } } catch {}
 
     const { pad, iconSize } = this.getUIIconMetrics();
 
@@ -175,7 +206,7 @@ export class BaseScene extends Phaser.Scene {
         else if (this.scene.key === 'GameScene') target = 'PilihKesulitanScene';
         else if (this.scene.key === 'ResultsScene') target = 'MainMenuScene';
 
-        try { this.sound.play('sfx_click', { volume: 0.7 }); } catch {}
+        try { this.playSound('sfx_click', { volume: 0.7 }); } catch {}
         if (target === 'PilihKesulitanScene' && (this as any).mode) this.scene.start(target, { mode: (this as any).mode });
         else this.scene.start(target);
       });
@@ -207,8 +238,8 @@ export class BaseScene extends Phaser.Scene {
       }
     } else if (BaseScene.isMusicOn) {
       if (this.cache.audio.exists('bgm')) {
-        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 });
-        try { BaseScene.backgroundMusic.play(); } catch { console.warn('Autoplay blocked; music will play after user gesture.'); }
+        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: getSettingsLite().musicVol ?? 0.5 });
+        try { BaseScene.backgroundMusic.play(); } catch {}
       }
     }
 
@@ -224,6 +255,15 @@ export class BaseScene extends Phaser.Scene {
     console.log('Music Toggled:', BaseScene.isMusicOn);
   }
 
+  // SFX aware settings
+  protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
+    const s = getSettingsLite();
+    if (s.sfxOn === false) return;
+    const vol = (config?.volume ?? 1) * (s.sfxVol ?? 1);
+    try { if (this.cache.audio.exists(key)) this.sound.play(key, { ...config, volume: vol }); } catch {}
+  }
+
+  // Helper tombol reusable
   protected createButton(y: number, label: string, onClick?: () => void): Phaser.GameObjects.Container {
     const width = Math.round(this.scale.width * 0.86);
     const height = Math.max(48, Math.round(this.scale.height * 0.08));
@@ -255,7 +295,7 @@ export class BaseScene extends Phaser.Scene {
     zone.on('pointerdown', () => this.updateButtonGraphics(g, width, height, 0xdddddd));
     zone.on('pointerup', () => {
       this.updateButtonGraphics(g, width, height, 0xf5f5f5);
-      this.playSound('sfx_click');
+      this.playSound('sfx_click', { volume: 0.7 });
       onClick?.();
     });
 
@@ -278,7 +318,6 @@ export class BaseScene extends Phaser.Scene {
 
     const x = -width / 2;
     const y = -height / 2;
-
     graphics.fillRoundedRect(x, y, width, height, radius);
     graphics.strokeRoundedRect(x, y, width, height, radius);
   }
@@ -287,10 +326,6 @@ export class BaseScene extends Phaser.Scene {
     const bounds = (gameObject as any).getBounds?.();
     if (!bounds) return false;
     return bounds.contains(pointer.x, pointer.y);
-  }
-
-  protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
-    try { if (this.cache.audio.exists(key)) this.sound.play(key, config); } catch {}
   }
 
   public draw() {
