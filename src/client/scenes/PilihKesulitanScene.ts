@@ -1,6 +1,5 @@
 import { BaseScene } from './BaseScene';
-
-type DifficultyKey = 'mudah' | 'menengah' | 'sulit' | 'pro';
+import type { DifficultyKey } from '../questions';
 
 export class PilihKesulitanScene extends BaseScene {
   public mode: 'belajar' | 'survive' = 'belajar';
@@ -13,7 +12,7 @@ export class PilihKesulitanScene extends BaseScene {
 
   public override create() {
     super.create();
-    // Tombol kembali OK di layar ini (kembali ke PilihMode)
+    // tombol kembali ke PilihModeScene
     this.createCommonButtons('PilihModeScene');
     this.draw();
   }
@@ -33,7 +32,8 @@ export class PilihKesulitanScene extends BaseScene {
     const mudah = make(this.scale.height * 0.45, 'Mudah', 'mudah');
     const menengah = make(this.scale.height * 0.58, 'Menengah', 'menengah');
     const sulit = make(this.scale.height * 0.71, 'Sulit', 'sulit');
+    const pro = make(this.scale.height * 0.84, 'Pro', 'pro'); // tombol PRO dikembalikan
 
-    this.sceneContentGroup.addMultiple([mudah, menengah, sulit]);
+    this.sceneContentGroup.addMultiple([mudah, menengah, sulit, pro]);
   }
 }

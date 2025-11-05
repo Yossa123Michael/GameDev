@@ -1,10 +1,14 @@
-export interface Question {
+export type DifficultyKey = 'mudah' | 'menengah' | 'sulit' | 'pro';
+
+// Izinkan kedua nama properti agar data lama ("correctAnswerIndex") tetap valid,
+// sambil mendukung nama baru ("answerIndex") bila kamu ingin merapikan ke depan.
+export type Question = {
   question: string;
   options: string[];
-  correctAnswerIndex: number;
-  difficulty: 'mudah' | 'menengah' | 'sulit' | 'pro';
-}
-
+  difficulty: DifficultyKey;
+  answerIndex?: number;          // baru (opsional)
+  correctAnswerIndex?: number;   // lama (opsional)
+};
 // Bank Pertanyaan
 export const quizQuestions: Question[] = [
   {

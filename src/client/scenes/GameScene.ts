@@ -1,23 +1,44 @@
-import { quizQuestions, Question } from '../questions';
+import { quizQuestions, Question, DifficultyKey } from '../questions';
 import { BaseScene } from './BaseScene';
 
-type DifficultyKey = 'mudah' | 'menengah' | 'sulit' | 'pro';
+type Mode = 'belajar' | 'survive';
+
+type DifficultyConfig = {
+  totalQuestions: number;
+  totalTime: number;
+  perQuestionTime: number;
+  initialLives: number;
+  scoreBase: number;
+  timeMultiplier: number;
+  timeCeiling: boolean;
+  mix?: { mudah: number; menengah: number; sulit: number; pro?: number };
+};
+
+const difficultySettings: Record<DifficultyKey, DifficultyConfig> = {
+  mudah:    { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 1,   timeMultiplier: 1,   timeCeiling: false, mix: { mudah: 0.9, menengah: 0.1, sulit: 0.0 } },
+  menengah: { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 2,   timeMultiplier: 1.5, timeCeiling: true,  mix: { mudah: 0.1, menengah: 0.8, sulit: 0.1 } },
+  sulit:    { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 2, scoreBase: 2.5, timeMultiplier: 2,   timeCeiling: true,  mix: { mudah: 0.0, menengah: 0.1, sulit: 0.9 } },
+  pro:      { totalQuestions: 20, totalTime: 150, perQuestionTime: 10, initialLives: 1, scoreBase: 5,   timeMultiplier: 2,   timeCeiling: false, mix: { sulit: 1.0 } },
+};
 
 export class Game extends BaseScene {
-  private mode: 'belajar' | 'survive' = 'belajar';
+  private mode: Mode = 'belajar';
   private difficulty: DifficultyKey = 'mudah';
+  private cfg!: DifficultyConfig;
 
+  // data
   private questions: Question[] = [];
   private currentQuestionIndex = 0;
-
   private score = 0;
-  private lives = 3;
+  private lives = 0;
 
-  private remainingTime = 0;
-  private perQuestionTime = 10;
-
+  // timer
+  private sessionTimeRemaining = 0; // belajar
+  private perQuestionRemaining = 0; // survive
+  private questionStartMs = 0;
   private timerEvent: Phaser.Time.TimerEvent | null = null;
 
+  // UI
   private scoreText: Phaser.GameObjects.Text | null = null;
   private timerText: Phaser.GameObjects.Text | null = null;
   private livesText: Phaser.GameObjects.Text | null = null;
@@ -25,60 +46,55 @@ export class Game extends BaseScene {
 
   private activeOptionButtons: Phaser.GameObjects.Container[] = [];
 
-  constructor() {
-    super('GameScene');
-  }
+  // guard klik ganda
+  private isLocked = false;
 
-  public init(data: { mode?: 'belajar' | 'survive'; difficulty?: DifficultyKey }) {
+  constructor() { super('GameScene'); }
+
+  public init(data: { mode?: Mode; difficulty?: DifficultyKey }) {
     if (data?.mode) this.mode = data.mode;
     if (data?.difficulty) this.difficulty = data.difficulty;
+    this.cfg = difficultySettings[this.difficulty];
   }
 
   public override create() {
     super.create();
 
-    // Hapus tombol kembali di mode game (sesuai permintaan)
+    // hapus tombol kembali di mode game
     if (this.backButton) {
       this.backButton.destroy();
-      // Hindari referensi lama
       // @ts-ignore
       this.backButton = undefined;
     }
 
-    // Reset semua state agar main ulang tidak mewarisi state lama
     this.resetState();
-
-    // Bangun HUD lalu mulai game
     this.buildHUD();
     this.prepareQuestions();
-    this.startTimer();       // mulai timer per detik
-    this.showQuestion();     // render pertanyaan pertama
+    this.startTimer();
+    this.showQuestion();
 
-    // Pastikan resource dibersihkan saat keluar scene
     this.events.once('shutdown', this.onShutdown, this);
     this.events.once('destroy', this.onShutdown, this);
   }
 
   private resetState() {
     this.score = 0;
-    this.lives = this.initialLivesFor(this.difficulty);
-    this.remainingTime = this.perQuestionTime;
     this.currentQuestionIndex = 0;
+    this.isLocked = false;
 
-    // Bersihkan sisa-sisa dari permainan sebelumnya, jika ada
+    if (this.mode === 'survive') {
+      this.lives = this.cfg.initialLives;
+      this.perQuestionRemaining = this.cfg.perQuestionTime;
+      this.sessionTimeRemaining = 0;
+    } else {
+      this.lives = 0; // tidak dipakai
+      this.sessionTimeRemaining = this.cfg.totalTime;
+      this.perQuestionRemaining = 0;
+    }
+
     this.clearOptionButtons();
     this.timerEvent?.remove();
     this.timerEvent = null;
-  }
-
-  private initialLivesFor(diff: DifficultyKey): number {
-    switch (diff) {
-      case 'mudah': return 3;
-      case 'menengah': return 3;
-      case 'sulit': return 2;
-      case 'pro': return 1;
-      default: return 3;
-    }
   }
 
   private buildHUD() {
@@ -88,73 +104,72 @@ export class Game extends BaseScene {
       fontFamily: 'Nunito', fontSize: '28px', color: '#000'
     }).setOrigin(0, 0.5);
 
-    this.timerText = this.add.text(this.centerX, topY, `Waktu: ${this.remainingTime}`, {
+    const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
+    this.timerText = this.add.text(this.centerX, topY, `Waktu: ${timeVal}`, {
       fontFamily: 'Nunito', fontSize: '28px', color: '#000'
     }).setOrigin(0.5);
 
     this.livesText = this.add.text(this.scale.width * 0.9, topY, `Nyawa: ${this.lives}`, {
       fontFamily: 'Nunito', fontSize: '28px', color: '#000'
     }).setOrigin(1, 0.5);
+
+    if (this.mode === 'belajar') this.livesText.setVisible(false);
   }
 
   private prepareQuestions() {
-    // TODO: sesuaikan dengan generator soal yang kamu punya
-    // Untuk contoh, ambil 20 soal pertama (atau sesuai difficulty)
-    this.questions = quizQuestions.slice(0, 20);
+    const n = Math.min(this.cfg.totalQuestions, quizQuestions.length);
+    this.questions = quizQuestions.slice(0, n);
     this.currentQuestionIndex = 0;
   }
 
   private startTimer() {
-    // Pastikan timer sebelumnya dimatikan
     this.timerEvent?.remove();
     this.timerEvent = this.time.addEvent({
       delay: 1000,
       loop: true,
       callback: () => {
-        // Jika scene sudah non-aktif, jangan apa-apa
         if (!this.scene.isActive()) return;
 
-        if (this.remainingTime > 0) {
-          this.remainingTime -= 1;
-          this.timerText?.setText(`Waktu: ${this.remainingTime}`);
-          if (this.remainingTime === 0) {
-            this.handleTimeout();
+        if (this.mode === 'survive') {
+          if (this.perQuestionRemaining > 0) {
+            this.perQuestionRemaining -= 1;
+            this.timerText?.setText(`Waktu: ${this.perQuestionRemaining}`);
+            if (this.perQuestionRemaining === 0) this.handleTimeoutSurvive();
+          }
+        } else {
+          if (this.sessionTimeRemaining > 0) {
+            this.sessionTimeRemaining -= 1;
+            this.timerText?.setText(`Waktu: ${this.sessionTimeRemaining}`);
+            if (this.sessionTimeRemaining === 0) this.endGame();
           }
         }
       }
     });
   }
 
-  private handleTimeout() {
+  private handleTimeoutSurvive() {
     this.lives = Math.max(0, this.lives - 1);
     this.livesText?.setText(`Nyawa: ${this.lives}`);
-
-    if (this.lives <= 0) {
-      this.endGame();
-      return;
-    }
-
-    // Anggap jawaban salah dan lanjut ke soal berikutnya
+    if (this.lives <= 0) { this.endGame(); return; }
     this.currentQuestionIndex += 1;
-    this.remainingTime = this.perQuestionTime;
+    this.perQuestionRemaining = this.cfg.perQuestionTime;
     this.showQuestion();
   }
 
-  // ================== Render pertanyaan & opsi ==================
   private showQuestion() {
     this.clearOptionButtons();
+    this.isLocked = false;
 
     const q = this.questions[this.currentQuestionIndex];
-    if (!q) {
-      this.endGame();
-      return;
+    if (!q) { this.endGame(); return; }
+
+    if (this.mode === 'survive') {
+      this.perQuestionRemaining = this.cfg.perQuestionTime;
+      this.timerText?.setText(`Waktu: ${this.perQuestionRemaining}`);
     }
 
-    // Reset waktu per pertanyaan
-    this.remainingTime = this.perQuestionTime;
-    this.timerText?.setText(`Waktu: ${this.remainingTime}`);
+    this.questionStartMs = this.time.now;
 
-    // Teks pertanyaan rata TENGAH
     if (this.questionText) this.questionText.destroy();
     this.questionText = this.add.text(this.centerX, this.scale.height * 0.25, q.question, {
       fontFamily: 'Nunito',
@@ -164,14 +179,16 @@ export class Game extends BaseScene {
       wordWrap: { width: Math.floor(this.scale.width * 0.9) }
     }).setOrigin(0.5);
 
-    // Buat opsi sebagai tombol penuh (zona interaktif menutupi kotak + teks)
     const startY = this.scale.height * 0.38;
     const space = Math.max(64, Math.round(this.scale.height * 0.11));
-
     q.options.forEach((opt, i) => {
       const y = startY + i * space;
       this.createOptionButton(y, opt, () => this.onChoose(i));
     });
+  }
+
+  private getAnswerIndex(q: Question): number {
+    return (q as any).answerIndex ?? (q as any).correctAnswerIndex ?? -1;
   }
 
   private createOptionButton(centerY: number, label: string, onClick: () => void): Phaser.GameObjects.Container {
@@ -200,11 +217,21 @@ export class Game extends BaseScene {
     zone.setInteractive({ useHandCursor: true });
     container.add(zone);
 
-    zone.on('pointerover', () => this.updateButtonGraphics(g, width, height, 0xf5f5f5));
-    zone.on('pointerout', () => this.updateButtonGraphics(g, width, height, 0xffffff));
-    zone.on('pointerdown', () => this.updateButtonGraphics(g, width, height, 0xdddddd));
+    zone.on('pointerover', () => {
+      if (this.isLocked) return;
+      this.updateButtonGraphics(g, width, height, 0xf5f5f5, 0x000000, 3, radius);
+    });
+    zone.on('pointerout', () => {
+      if (this.isLocked) return;
+      this.updateButtonGraphics(g, width, height, 0xffffff, 0x000000, 3, radius);
+    });
+    zone.on('pointerdown', () => {
+      if (this.isLocked) return;
+      this.updateButtonGraphics(g, width, height, 0xdddddd, 0x000000, 3, radius);
+    });
     zone.on('pointerup', () => {
-      this.updateButtonGraphics(g, width, height, 0xf5f5f5);
+      if (this.isLocked) return;
+      this.updateButtonGraphics(g, width, height, 0xf5f5f5, 0x000000, 3, radius);
       this.playSound('sfx_click');
       onClick();
     });
@@ -218,61 +245,97 @@ export class Game extends BaseScene {
     this.activeOptionButtons = [];
   }
 
+  private highlightCorrect(correctIdx: number) {
+    const btn = this.activeOptionButtons[correctIdx];
+    if (!btn) return;
+    const width = (btn as any).width ?? 200;
+    const height = (btn as any).height ?? 48;
+    const radius = Math.min(24, Math.floor(height * 0.35));
+    const g = btn.getAt(0) as Phaser.GameObjects.Graphics;
+    this.updateButtonGraphics(g, width, height, 0xd4edda, 0x28a745, 3, radius);
+  }
+
   private onChoose(optionIndex: number) {
+    if (this.isLocked) return;
+    this.isLocked = true;
+
     const q = this.questions[this.currentQuestionIndex];
     if (!q) return;
 
-    const correct = optionIndex === q.answerIndex;
-    if (correct) {
-      // Contoh scoring sederhana
-      this.score += 10;
-      this.scoreText?.setText(`Skor: ${this.score.toFixed(1)}`);
-    } else {
-      this.lives = Math.max(0, this.lives - 1);
-      this.livesText?.setText(`Nyawa: ${this.lives}`);
-      if (this.lives <= 0) {
-        this.endGame();
-        return;
-      }
-    }
+    const correctIdx = this.getAnswerIndex(q);
+    const correct = optionIndex === correctIdx;
 
-    // Lanjut ke soal berikutnya
-    this.currentQuestionIndex += 1;
-    this.remainingTime = this.perQuestionTime;
-    this.showQuestion();
+    if (this.mode === 'belajar') {
+      const elapsedSec = Math.max(0, Math.min(10, Math.floor((this.time.now - this.questionStartMs) / 1000)));
+      const base = this.cfg.scoreBase;
+      const bonus = Math.max(0, (10 - elapsedSec)) * this.cfg.timeMultiplier;
+      const add = base + bonus; // Base + (10 - detik) * timeMultiplier
+
+      if (correct) {
+        this.score += add;
+        this.scoreText?.setText(`Skor: ${this.score.toFixed(1)}`);
+        this.gotoNextQuestion(200);
+      } else {
+        // Sorot jawaban benar dengan hijau, TANPA teks penjelasan
+        this.highlightCorrect(correctIdx);
+        this.gotoNextQuestion(900);
+      }
+    } else {
+      if (correct) {
+        this.score += 10;
+        this.scoreText?.setText(`Skor: ${this.score.toFixed(1)}`);
+      } else {
+        this.highlightCorrect(correctIdx);
+        this.lives = Math.max(0, this.lives - 1);
+        this.livesText?.setText(`Nyawa: ${this.lives}`);
+        if (this.lives <= 0) { this.endGame(); return; }
+      }
+
+      this.currentQuestionIndex += 1;
+      if (this.currentQuestionIndex >= this.cfg.totalQuestions) { this.endGame(); return; }
+      const delay = correct ? 150 : 700;
+      this.time.delayedCall(delay, () => {
+        this.perQuestionRemaining = this.cfg.perQuestionTime;
+        this.showQuestion();
+      });
+    }
   }
 
-  private endGame() {
-    // Hentikan timer agar tidak bocor ke scene berikutnya
-    this.timerEvent?.remove();
-    this.timerEvent = null;
-
-    // Pindah ke hasil
-    this.scene.start('ResultsScene', {
-      score: this.score,
-      mode: this.mode,
-      duration: 0
+  private gotoNextQuestion(delayMs = 400) {
+    this.time.delayedCall(delayMs, () => {
+      this.currentQuestionIndex += 1;
+      if (this.currentQuestionIndex >= this.cfg.totalQuestions) { this.endGame(); return; }
+      this.showQuestion();
     });
   }
 
+  private endGame() {
+    this.timerEvent?.remove();
+    this.timerEvent = null;
+    const duration = this.mode === 'belajar' ? (this.cfg.totalTime - this.sessionTimeRemaining) : 0;
+    this.scene.start('ResultsScene', { score: this.score, mode: this.mode, duration });
+  }
+
   private onShutdown() {
-    // Bersihkan semua supaya saat main ulang tidak freeze
     this.timerEvent?.remove();
     this.timerEvent = null;
     this.clearOptionButtons();
     this.input.removeAllListeners();
   }
 
-  // Saat resize, cukup relayout UI tanpa membangun ulang tombol (agar tidak rebind handler)
   public override draw() {
     super.draw();
 
     const topY = 50;
     this.scoreText?.setPosition(this.scale.width * 0.1, topY);
-    this.timerText?.setPosition(this.centerX, topY);
-    this.livesText?.setPosition(this.scale.width * 0.9, topY);
+    const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
+    this.timerText?.setPosition(this.centerX, topY).setText(`Waktu: ${timeVal}`);
+    if (this.mode === 'survive') {
+      this.livesText?.setPosition(this.scale.width * 0.9, topY).setVisible(true).setText(`Nyawa: ${this.lives}`);
+    } else {
+      this.livesText?.setVisible(false);
+    }
 
-    // Relayout pertanyaan dan opsi
     this.questionText?.setPosition(this.centerX, this.scale.height * 0.25);
     if (this.questionText) {
       this.questionText.setStyle({ wordWrap: { width: Math.floor(this.scale.width * 0.9) } });
@@ -290,12 +353,11 @@ export class Game extends BaseScene {
         (btn as any).width = width;
         (btn as any).height = height;
 
-        // children: [graphics, text, zone]
         const g = btn.getAt(0) as Phaser.GameObjects.Graphics;
         const txt = btn.getAt(1) as Phaser.GameObjects.Text;
         const zone = btn.getAt(2) as Phaser.GameObjects.Zone;
 
-        this.updateButtonGraphics(g, width, height, 0xffffff);
+        this.updateButtonGraphics(g, width, height, 0xffffff, 0x000000, 3, radius);
         txt.setStyle({
           fontSize: `${Math.max(16, Math.floor(height * 0.38))}px`,
           wordWrap: { width: Math.floor(width * 0.9) },

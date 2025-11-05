@@ -60,6 +60,7 @@ export class BaseScene extends Phaser.Scene {
       this.handleResize(this.scale.gameSize);
     });
 
+    // Musik
     if (!BaseScene.backgroundMusic && BaseScene.isMusicOn) {
       if (this.cache.audio.exists('bgm')) {
         BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: 0.5 });
@@ -97,6 +98,14 @@ export class BaseScene extends Phaser.Scene {
     this.centerY = Math.floor(this.scale.height / 2);
   }
 
+  // Hitung ukuran ikon dan padding yang responsif terhadap layar
+  protected getUIIconMetrics() {
+    const sMin = Math.min(this.scale.width, this.scale.height);
+    const pad = Phaser.Math.Clamp(Math.round(sMin * 0.02), 8, 48);      // padding responsif
+    const iconSize = Phaser.Math.Clamp(Math.round(sMin * 0.06), 24, 128); // ikon responsif
+    return { pad, iconSize };
+  }
+
   protected handleResize = (gameSize: Phaser.Structs.Size) => {
     // @ts-ignore
     if (!this.cameras || !this.cameras.main || !this.scale) return;
@@ -116,9 +125,9 @@ export class BaseScene extends Phaser.Scene {
   };
 
   protected createCommonButtons(targetBackSceneKey?: string) {
-    const pad = Math.round(Math.max(12, Math.min(this.scale.width, this.scale.height) * 0.02));
-    const iconSize = Math.round(pad * 1.8);
+    const { pad, iconSize } = this.getUIIconMetrics();
 
+    // Music
     const musicKey =
       this.textures.exists('music_on') || this.textures.exists('music_off')
         ? (BaseScene.isMusicOn ? 'music_on' : 'music_off')
@@ -138,6 +147,7 @@ export class BaseScene extends Phaser.Scene {
       this.musicButton = g as any;
     }
 
+    // Back
     if (this.textures.exists('back_arrow')) {
       this.backButton = this.add
         .image(pad, pad, 'back_arrow')
@@ -167,11 +177,14 @@ export class BaseScene extends Phaser.Scene {
   }
 
   protected layoutCommonButtons() {
-    const pad = Math.round(Math.max(12, Math.min(this.scale.width, this.scale.height) * 0.02));
-    const iconSize = Math.round(pad * 1.8);
+    const { pad, iconSize } = this.getUIIconMetrics();
 
-    if (this.musicButton) this.musicButton.setPosition(this.scale.width - pad, pad).setDisplaySize(iconSize, iconSize);
-    if (this.backButton) this.backButton.setPosition(pad, pad).setDisplaySize(iconSize, iconSize);
+    if (this.musicButton) {
+      this.musicButton.setPosition(this.scale.width - pad, pad).setDisplaySize(iconSize, iconSize);
+    }
+    if (this.backButton) {
+      this.backButton.setPosition(pad, pad).setDisplaySize(iconSize, iconSize);
+    }
   }
 
   protected toggleMusic() {
@@ -216,25 +229,23 @@ export class BaseScene extends Phaser.Scene {
     (container as any).width = width;
     (container as any).height = height;
 
-    // Background grafis
     const g = this.add.graphics();
     this.updateButtonGraphics(g, width, height, 0xffffff, 0x000000, 3, radius);
     container.add(g);
 
-    // Label di tengah
     const txt = this.add.text(0, 0, label, {
       fontFamily: 'Nunito',
       fontSize: `${Math.max(16, Math.floor(height * 0.38))}px`,
-      color: '#000'
+      color: '#000',
+      align: 'center',
+      wordWrap: { width: Math.floor(width * 0.9) }
     }).setOrigin(0.5);
     container.add(txt);
 
-    // Zone interaktif selebar tombol — menangkap semua klik/hover
     const zone = this.add.zone(0, 0, width, height).setOrigin(0.5);
     zone.setInteractive({ useHandCursor: true });
     container.add(zone);
 
-    // Hover/press/release feedback + onClick
     zone.on('pointerover', () => this.updateButtonGraphics(g, width, height, 0xf5f5f5));
     zone.on('pointerout', () => this.updateButtonGraphics(g, width, height, 0xffffff));
     zone.on('pointerdown', () => this.updateButtonGraphics(g, width, height, 0xdddddd));
@@ -244,9 +255,7 @@ export class BaseScene extends Phaser.Scene {
       onClick?.();
     });
 
-    // Ukuran container untuk layout
     container.setSize(width, height);
-
     return container;
   }
 

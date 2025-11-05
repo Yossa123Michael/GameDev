@@ -1,5 +1,5 @@
 // Edge Function: submit-score (Deno)
-// CORS lengkap + OPTIONS 200 + GET health + POST insert skor
+/// <reference lib="deno.ns" />
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -18,7 +18,7 @@ function json(body: unknown, init: ResponseInit = {}) {
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method === "GET") return json({ ok: true, code: "ALIVE", version: "v6" });
+  if (req.method === "GET") return json({ ok: true, code: "ALIVE", version: "v7" });
   if (req.method !== "POST") return json({ ok: false, error: "Method Not Allowed" }, { status: 405 });
 
   const SB_URL = Deno.env.get("SB_URL");
@@ -32,19 +32,22 @@ serve(async (req: Request) => {
   const score = Number.isFinite(payload?.score) ? Math.round(payload.score) : NaN;
   const mode = String(payload?.mode ?? "belajar");
   const duration = Number.isFinite(payload?.duration) ? Math.round(payload.duration) : null;
+  const user_id = typeof payload?.user_id === "string" ? payload.user_id : null;
+
   if (!name || !Number.isFinite(score)) return json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
 
   try {
     const supabase = createClient(SB_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     const row: Record<string, unknown> = { name, score, mode };
     if (typeof duration === "number") row.duration = duration;
+    if (user_id) row.user_id = user_id;
 
     const { data, error } = await supabase.from("scores").insert(row).select("id").single();
     if (error) {
       console.error("DB insert error", error);
       return json({ ok: false, error: "DB_INSERT_FAILED" }, { status: 500 });
     }
-    return json({ ok: true, id: data?.id ?? null, version: "v6" });
+    return json({ ok: true, id: data?.id ?? null, version: "v7" });
   } catch (e) {
     console.error("Unhandled error", e);
     return json({ ok: false, error: "UNEXPECTED" }, { status: 500 });

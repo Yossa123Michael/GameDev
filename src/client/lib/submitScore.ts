@@ -8,14 +8,18 @@ export async function submitScoreViaFunction(
   mode: string = 'belajar',
   duration?: number
 ): Promise<SubmitResult> {
-  const payload = {
+  const user = (await supabase.auth.getUser()).data.user;
+  const user_id = user?.id ?? null;
+
+  const payload: any = {
     name: String(name ?? '').trim().substring(0, 32),
     score: Math.round(Number(score ?? 0)),
     mode: String(mode ?? 'belajar'),
     ...(typeof duration === 'number' ? { duration: Math.round(duration) } : {}),
+    ...(user_id ? { user_id } : {}),
   };
 
-  // 1) Invoke Edge Function (menyertakan JWT user dari session anon)
+  // 1) Invoke Edge Function
   try {
     const { data, error } = await supabase.functions.invoke('submit-score', { body: payload });
     if (!error) return { ok: true, data };
@@ -24,7 +28,7 @@ export async function submitScoreViaFunction(
     console.warn('submit-score invoke threw:', e?.message || e);
   }
 
-  // 2) Fallback: insert langsung ke tabel agar fitur tetap jalan
+  // 2) Fallback insert langsung
   try {
     const { data, error } = await supabase
       .from('scores')
