@@ -17,6 +17,14 @@ function getSettingsLite(): SettingsLite {
   } catch { return {}; }
 }
 
+function setSettingsLite(patch: SettingsLite) {
+  try {
+    const cur = getSettingsLite();
+    const next = { ...cur, ...patch };
+    localStorage.setItem('rk:settings', JSON.stringify(next));
+  } catch { /* ignore */ }
+}
+
 export class BaseScene extends Phaser.Scene {
   protected centerX!: number;
   protected centerY!: number;
@@ -227,6 +235,7 @@ export class BaseScene extends Phaser.Scene {
 
   protected toggleMusic() {
     BaseScene.isMusicOn = !BaseScene.isMusicOn;
+    setSettingsLite({ musicOn: BaseScene.isMusicOn });
 
     if (BaseScene.backgroundMusic) {
       if (BaseScene.isMusicOn) {

@@ -7,7 +7,7 @@ import { ResultsScene } from './scenes/ResultsScene';
 import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { AchievementScene } from './scenes/AchievementScene';
 import { OptionScene } from './scenes/OptionScene';
-import { CreditScene } from './scenes/CreditScene';
+import CreditScene from './scenes/CreditScene';
 import { ensureAnonAuth } from './lib/supabaseClient';
 
 //Scene Boot untuk Font

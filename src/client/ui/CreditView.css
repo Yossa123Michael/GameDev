@@ -1,0 +1,76 @@
+/* Overlay React transparan, biarkan tombol Phaser di belakang tetap bisa diklik */
+.credit-root {
+  width: 100%;
+  max-width: 250px;
+  margin: 0 auto;
+  padding: 12px 16px 48px;
+  color: #111;
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  pointer-events: none; /* penting: pass-through ke Phaser */
+  box-sizing: border-box;
+}
+
+/* Hanya link yang bisa di-klik */
+.credit-link { pointer-events: auto; }
+
+.credit-title {
+  font-size: 48px;
+  font-weight: 800;
+  text-align: center;
+  margin: 32px 0 22px;
+}
+
+.credits-wrapper { padding-bottom: 80px; }
+
+.credit-category { margin: 24px 0 6px; }
+.category-title {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 12px;
+}
+
+/* Single list */
+.single-list { list-style: none; padding: 0; margin: 0; text-align: center; }
+.single-item { margin: 6px 0; }
+
+/* Link/text */
+.credit-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(17,17,17,0.35);
+  padding-bottom: 2px;
+  display: inline-block;
+  line-height: 1.25;
+}
+.credit-link:hover { text-decoration: underline; }
+.plain-text { display: inline-block; line-height: 1.25; }
+.strong { font-weight: 700; }
+
+/* Dua kolom nempel ke tengah, jarak diset lebih rapat */
+.two-col-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;              /* jarak antar baris */
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 0 2px;
+}
+
+.two-col-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 44px;      /* atur 40–48 jika perlu */
+  align-items: center;
+}
+
+.col-left  { text-align: right; font-size: 15px; font-weight: 600; }
+.col-right { text-align: left;  font-size: 15px; font-weight: 700; }
+
+@media (max-width: 520px) {
+  .credit-root  { max-width: 94%; padding: 10px 12px 42px; }
+  .credit-title { font-size: 42px; margin: 26px 0 18px; }
+  .category-title { font-size: 20px; margin-bottom: 10px; }
+  .two-col-row { column-gap: 38px; }
+  .col-left, .col-right { font-size: 14px; }
+}
