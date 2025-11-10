@@ -186,10 +186,10 @@ export class OptionScene extends BaseScene {
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.input.setDefaultCursor('default'));
   }
 
+  // PENTING: jangan panggil super.draw() di sini, supaya UI yang dibuat di create() tidak dihapus.
   public override draw() {
-    super.draw();
-
-    if (this.title) this.title.setPosition(this.centerX, 90);
+    // Reposisi responsif
+    this.title?.setPosition(this.centerX, 90);
 
     const colX = this.centerX;
     const lineH = Math.max(52, Math.round(this.scale.height * 0.06));
@@ -278,7 +278,7 @@ export class OptionScene extends BaseScene {
     const z = this.add.zone(0, 0, width, height).setOrigin(0.5).setInteractive({ useHandCursor: true });
     z.on('pointerup', () => { this.playSound('sfx_click', { volume: 0.7 }); onClick(); });
 
-    c.add([g, t, z]); // Container.add menerima array
+    c.add([g, t, z]);
     return c;
   }
 

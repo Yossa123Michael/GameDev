@@ -398,9 +398,9 @@ export class LeaderboardScene extends BaseScene {
     if (lc) lc.setPosition(0, top - this.scrollY);
 
     const mg = this.maskGraphics;
-    if (mg) { mg.clear(); mg.fillStyle(0xffffff, 1); mg.fillRect(left, top, width, height); }
+    if (mg) { try { mg.clear(); mg.fillStyle(0xffffff, 1); mg.fillRect(left, top, width, height); } catch {} }
 
-    const sa = this.scrollArea;
+    const sa = this.scrollArea as Phaser.GameObjects.Rectangle | undefined;
     if (sa && (sa as any).scene) {
       try {
         sa.setPosition(left + width / 2, top + height / 2);
