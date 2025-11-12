@@ -1,58 +1,8 @@
 import { BaseScene } from './BaseScene';
+import { SettingsManager, clamp01 } from '../lib/Settings';
+import type { Settings } from '../lib/Settings';
 
 type GraphicsQuality = 'normal' | 'low';
-type LanguageCode = 'en';
-
-type Options = {
-  musicOn: boolean;
-  musicVol: number; // 0..1
-  sfxOn: boolean;
-  sfxVol: number;   // 0..1
-  graphics: GraphicsQuality;
-  language: LanguageCode; // EN sementara
-  vibration: boolean;
-  version: 'global';
-};
-
-const LS_KEY = 'rk:settings';
-
-function clamp01(x: number) {
-  if (!isFinite(x as any)) return 0;
-  return Math.max(0, Math.min(1, Number(x)));
-}
-
-function loadOptions(): Options {
-  const def: Options = {
-    musicOn: true,
-    musicVol: 0.8,
-    sfxOn: true,
-    sfxVol: 1,
-    graphics: 'normal',
-    language: 'en',
-    vibration: true,
-    version: 'global',
-  };
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return def;
-    const parsed = JSON.parse(raw);
-    const opt = { ...def, ...parsed } as Options;
-    opt.musicVol = clamp01(opt.musicVol);
-    opt.sfxVol = clamp01(opt.sfxVol);
-    return opt;
-  } catch {
-    return def;
-  }
-}
-
-function saveOptions(next: Partial<Options>) {
-  const cur = loadOptions();
-  const merged: Options = { ...cur, ...next };
-  merged.musicVol = clamp01(merged.musicVol);
-  merged.sfxVol = clamp01(merged.sfxVol);
-  try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
-  return merged;
-}
 
 export class OptionScene extends BaseScene {
   private title?: Phaser.GameObjects.Text;
@@ -75,7 +25,11 @@ export class OptionScene extends BaseScene {
 
   private versionText?: Phaser.GameObjects.Text;
 
-  private opts: Options = loadOptions();
+  // Settings via SettingsManager (single source of truth)
+  private opts: Settings = SettingsManager.get();
+
+  // Unsubscribe holder (RENAME to avoid clash with BaseScene.settingsUnsub)
+  private optsUnsub?: () => void;
 
   constructor() {
     super('OptionScene');
@@ -84,6 +38,19 @@ export class OptionScene extends BaseScene {
   public override create() {
     super.create();
     super.createCommonButtons('MainMenuScene');
+
+    // Subscribe agar UI Options selalu sinkron jika horn mengubah settings
+    this.optsUnsub = SettingsManager.subscribe((s) => {
+      this.opts = s;
+      try { this.updateToggleLabel(this.musicToggle!, `Music: ${this.opts.musicOn ? 'On' : 'Off'}`); } catch {}
+      try { this.updateToggleLabel(this.sfxToggle!,   `SFX: ${this.opts.sfxOn   ? 'On' : 'Off'}`); } catch {}
+      try { this.applyOptions(this.opts); } catch {}
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      try { this.optsUnsub?.(); } catch {}
+    });
+
+    // Terapkan state awal
     this.applyOptions(this.opts);
 
     // Title
@@ -96,7 +63,8 @@ export class OptionScene extends BaseScene {
 
     // MUSIC toggle
     this.musicToggle = this.createToggle(y, `Music: ${this.opts.musicOn ? 'On' : 'Off'}`, this.opts.musicOn, (v) => {
-      this.opts = saveOptions({ musicOn: v });
+      SettingsManager.save({ musicOn: v });
+      this.opts = SettingsManager.get();
       this.updateToggleLabel(this.musicToggle!, `Music: ${v ? 'On' : 'Off'}`);
       this.applyOptions(this.opts);
     });
@@ -105,15 +73,19 @@ export class OptionScene extends BaseScene {
 
     // SFX toggle
     this.sfxToggle = this.createToggle(y, `SFX: ${this.opts.sfxOn ? 'On' : 'Off'}`, this.opts.sfxOn, (v) => {
-      this.opts = saveOptions({ sfxOn: v });
+      SettingsManager.save({ sfxOn: v });
+      this.opts = SettingsManager.get();
       this.updateToggleLabel(this.sfxToggle!, `SFX: ${v ? 'On' : 'Off'}`);
+      // playSound akan membaca SettingsManager.get() sehingga tidak perlu applyOptions di sini
     });
     if (this.sfxToggle) this.sceneContentGroup.add(this.sfxToggle);
     y += 70;
 
     // Music volume slider
     this.musicSlider = this.createSlider(y, 'Music Volume', this.opts.musicVol, (val) => {
-      this.opts = saveOptions({ musicVol: val });
+      const v = clamp01(val);
+      SettingsManager.save({ musicVol: v });
+      this.opts = SettingsManager.get();
       this.applyOptions(this.opts);
     });
     if (this.musicSlider) this.sceneContentGroup.add(this.musicSlider);
@@ -121,7 +93,9 @@ export class OptionScene extends BaseScene {
 
     // SFX volume slider
     this.sfxSlider = this.createSlider(y, 'SFX Volume', this.opts.sfxVol, (val) => {
-      this.opts = saveOptions({ sfxVol: val });
+      const v = clamp01(val);
+      SettingsManager.save({ sfxVol: v });
+      this.opts = SettingsManager.get();
     });
     if (this.sfxSlider) this.sceneContentGroup.add(this.sfxSlider);
     y += 80;
@@ -134,12 +108,14 @@ export class OptionScene extends BaseScene {
     y += 48;
 
     this.qualityNormal = this.createSmallButton(y, 'Normal', () => {
-      this.opts = saveOptions({ graphics: 'normal' });
+      SettingsManager.save({ graphics: 'normal' });
+      this.opts = SettingsManager.get();
       this.applyOptions(this.opts);
       this.refreshQualityButtons();
     });
     this.qualityLow = this.createSmallButton(y, 'Low', () => {
-      this.opts = saveOptions({ graphics: 'low' });
+      SettingsManager.save({ graphics: 'low' });
+      this.opts = SettingsManager.get();
       this.applyOptions(this.opts);
       this.refreshQualityButtons();
     });
@@ -157,7 +133,8 @@ export class OptionScene extends BaseScene {
 
     // Vibration
     this.vibrateToggle = this.createToggle(y, `Vibration: ${this.opts.vibration ? 'On' : 'Off'}`, this.opts.vibration, (v) => {
-      this.opts = saveOptions({ vibration: v });
+      SettingsManager.save({ vibration: v });
+      this.opts = SettingsManager.get();
       this.updateToggleLabel(this.vibrateToggle!, `Vibration: ${v ? 'On' : 'Off'}`);
       try { if (v && navigator.vibrate) navigator.vibrate(40); } catch {}
     });
@@ -246,7 +223,7 @@ export class OptionScene extends BaseScene {
     const updateFromPointer = (px: number) => {
       const left = c.x - trackW / 2;
       let v = (px - left) / trackW;
-      v = clamp01(v);
+      v = Math.max(0, Math.min(1, v));
       knob.x = -trackW / 2 + trackW * v;
       lbl.setText(`${label}: ${Math.round(v * 100)}%`);
       onChange(v);
@@ -308,7 +285,8 @@ export class OptionScene extends BaseScene {
     const yes = this.createSmallButton(this.centerY + 35, 'Yes', () => {
       try { localStorage.removeItem('rk:best'); } catch {}
       try { localStorage.removeItem('rk:lastSubmission'); } catch {}
-      try { localStorage.removeItem(LS_KEY); } catch {}
+      try { localStorage.removeItem('rk:settings'); } catch {}
+      SettingsManager.reset();
       this.playSound('sfx_click', { volume: 0.7 });
       try { this.confirmBox?.destroy(true); } catch {}
       this.scene.start('MainMenuScene');
@@ -326,7 +304,10 @@ export class OptionScene extends BaseScene {
     this.sceneContentGroup.add(c);
   }
 
-  private applyOptions(o: Options) {
+  private applyOptions(o: Settings) {
+    // Sinkronkan BaseScene.isMusicOn agar horn/icon mengikuti Options
+    try { (BaseScene as any).isMusicOn = !!o.musicOn; } catch {}
+
     // Music on/off + volume
     try {
       if (!o.musicOn) {
@@ -337,6 +318,18 @@ export class OptionScene extends BaseScene {
         }
       }
       try { (BaseScene.backgroundMusic as any)?.setVolume?.(o.musicVol); } catch {}
+    } catch {}
+
+    // update ikon horn sesuai Options.musicOn
+    try {
+      const key = o.musicOn ? 'music_on' : 'music_off';
+      if (this.musicButton && 'setTexture' in this.musicButton) {
+        if (this.textures.exists(key)) {
+          try { (this.musicButton as Phaser.GameObjects.Image).setTexture(key); } catch {}
+        } else {
+          try { this.musicButton.setVisible(false).disableInteractive(); } catch {}
+        }
+      }
     } catch {}
 
     // Graphics
