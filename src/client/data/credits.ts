@@ -56,6 +56,7 @@ const credits: CreditCategory[] = [
   {
     title: 'Font',
     layout: 'single',
+    subtitle: 'Google Fonts', 
     items: [
       { name: 'Nunito', url: 'https://fonts.google.com/specimen/Nunito'}
     ]

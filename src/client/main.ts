@@ -10,46 +10,42 @@ import { OptionScene } from './scenes/OptionScene';
 import CreditScene from './scenes/CreditScene';
 import { ensureAnonAuth } from './lib/supabaseClient';
 
-//Scene Boot untuk Font
+// Scene Boot untuk Font
 class BootScene extends Phaser.Scene {
-  constructor() {
-    super('BootScene');
-  }
+  constructor() { super('BootScene'); }
 
   preload() {
     this.load.script('webfont', 'https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js');
   }
 
-  create() {
+  async create() {
     (window as any).WebFont.load({
       google: { families: ['Nunito:700'] },
-      active: async () => {
-        await ensureAnonAuth();
-        this.scene.start('MainMenuScene');
-      },
-      inactive: async () => {
-        await ensureAnonAuth();
-        this.scene.start('MainMenuScene');
-      }
+      active: async () => { await ensureAnonAuth(); this.scene.start('MainMenuScene'); },
+      inactive: async () => { await ensureAnonAuth(); this.scene.start('MainMenuScene'); }
     });
   }
-}//Scene Boot
+}
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.CANVAS,
   parent: 'game',
+  // KEMBALI ke RESIZE agar memenuhi kontainer tanpa letterbox.
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  audio: {
-    disableWebAudio: false
+  audio: { disableWebAudio: false },
+  render: {
+    // Tetap rapikan garis saat resize
+    roundPixels: true,
+    antialias: true,
+    pixelArt: false,
   },
   scene: [
     BootScene,
     MainMenuScene,
     PilihModeScene,
-    // Pastikan scene ini ada, sesuai error “Scene key not found”
     PilihKesulitanScene,
     Game,
     ResultsScene,

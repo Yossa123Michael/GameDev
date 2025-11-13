@@ -46,6 +46,17 @@ export class Game extends BaseScene {
 
   private activeOptionButtons: Phaser.GameObjects.Container[] = [];
 
+  private getHudFontPx() {
+    const s = Math.min(this.scale.width, this.scale.height);
+    // skala aman untuk mobile kecil
+    return Math.max(14, Math.round(s * 0.035));
+  }
+  private getQuestionFontPx() {
+    // skala relatif terhadap lebar/tinggi; batasi agar tidak kebesaran di mobile
+    const f = Math.min(this.scale.width * 0.055, this.scale.height * 0.06);
+    return Math.max(16, Math.round(f));
+  }
+
   // guard klik ganda
   private isLocked = false;
 
@@ -99,18 +110,19 @@ export class Game extends BaseScene {
 
   private buildHUD() {
     const topY = 50;
+    const hudFont = this.getHudFontPx();
 
     this.scoreText = this.add.text(this.scale.width * 0.1, topY, `Skor: ${this.score.toFixed(1)}`, {
-      fontFamily: 'Nunito', fontSize: '28px', color: '#000'
+      fontFamily: 'Nunito', fontSize: `${hudFont}px`, color: '#000'
     }).setOrigin(0, 0.5);
 
     const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
     this.timerText = this.add.text(this.centerX, topY, `Waktu: ${timeVal}`, {
-      fontFamily: 'Nunito', fontSize: '28px', color: '#000'
+      fontFamily: 'Nunito', fontSize: `${hudFont}px`, color: '#000'
     }).setOrigin(0.5);
 
     this.livesText = this.add.text(this.scale.width * 0.9, topY, `Nyawa: ${this.lives}`, {
-      fontFamily: 'Nunito', fontSize: '28px', color: '#000'
+      fontFamily: 'Nunito', fontSize: `${hudFont}px`, color: '#000'
     }).setOrigin(1, 0.5);
 
     if (this.mode === 'belajar') this.livesText.setVisible(false);
@@ -171,16 +183,17 @@ export class Game extends BaseScene {
     this.questionStartMs = this.time.now;
 
     if (this.questionText) this.questionText.destroy();
+    const qFont = this.getQuestionFontPx();
     this.questionText = this.add.text(this.centerX, this.scale.height * 0.25, q.question, {
       fontFamily: 'Nunito',
-      fontSize: '36px',
+      fontSize: `${qFont}px`,
       color: '#000',
       align: 'center',
       wordWrap: { width: Math.floor(this.scale.width * 0.9) }
     }).setOrigin(0.5);
 
     const startY = this.scale.height * 0.38;
-    const space = Math.max(64, Math.round(this.scale.height * 0.11));
+    const space  = Math.max(56, Math.round(this.scale.height * 0.10));
     q.options.forEach((opt, i) => {
       const y = startY + i * space;
       this.createOptionButton(y, opt, () => this.onChoose(i));
@@ -327,39 +340,47 @@ export class Game extends BaseScene {
     super.draw();
 
     const topY = 50;
-    this.scoreText?.setPosition(this.scale.width * 0.1, topY);
+    const hudFont = this.getHudFontPx();
+
+    this.scoreText?.setPosition(this.scale.width * 0.1, topY).setStyle({ fontSize: `${hudFont}px` });
     const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
-    this.timerText?.setPosition(this.centerX, topY).setText(`Waktu: ${timeVal}`);
+    this.timerText?.setPosition(this.centerX, topY).setText(`Waktu: ${timeVal}`).setStyle({ fontSize: `${hudFont}px` });
     if (this.mode === 'survive') {
-      this.livesText?.setPosition(this.scale.width * 0.9, topY).setVisible(true).setText(`Nyawa: ${this.lives}`);
+      this.livesText?.setPosition(this.scale.width * 0.9, topY).setVisible(true).setText(`Nyawa: ${this.lives}`).setStyle({ fontSize: `${hudFont}px` });
     } else {
       this.livesText?.setVisible(false);
     }
 
+    const qFont = this.getQuestionFontPx();
     this.questionText?.setPosition(this.centerX, this.scale.height * 0.25);
     if (this.questionText) {
-      this.questionText.setStyle({ wordWrap: { width: Math.floor(this.scale.width * 0.9) } });
+      this.questionText.setStyle({
+        fontSize: `${qFont}px`,
+        wordWrap: { width: Math.floor(this.scale.width * 0.9) },
+        align: 'center',
+        color: '#000'
+      });
     }
 
     if (this.activeOptionButtons.length > 0) {
-      const width = Math.round(this.scale.width * 0.9);
+      const width  = Math.round(this.scale.width * 0.9);
       const height = Math.max(48, Math.round(this.scale.height * 0.08));
       const radius = Math.min(24, Math.floor(height * 0.35));
       const startY = this.scale.height * 0.38;
-      const space = Math.max(64, Math.round(this.scale.height * 0.11));
+      const space  = Math.max(56, Math.round(this.scale.height * 0.10));
 
       this.activeOptionButtons.forEach((btn, i) => {
         btn.setPosition(this.centerX, startY + i * space);
         (btn as any).width = width;
         (btn as any).height = height;
 
-        const g = btn.getAt(0) as Phaser.GameObjects.Graphics;
+        const g   = btn.getAt(0) as Phaser.GameObjects.Graphics;
         const txt = btn.getAt(1) as Phaser.GameObjects.Text;
-        const zone = btn.getAt(2) as Phaser.GameObjects.Zone;
+        const zone= btn.getAt(2) as Phaser.GameObjects.Zone;
 
         this.updateButtonGraphics(g, width, height, 0xffffff, 0x000000, 3, radius);
         txt.setStyle({
-          fontSize: `${Math.max(16, Math.floor(height * 0.38))}px`,
+          fontSize: `${Math.max(14, Math.floor(height * 0.38))}px`,
           wordWrap: { width: Math.floor(width * 0.9) },
           align: 'center',
           color: '#000'

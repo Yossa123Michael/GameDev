@@ -153,6 +153,7 @@ export class OptionScene extends BaseScene {
   }
 
   public override draw() {
+    // Reposisi header & kontrol (bagian lama)
     this.title?.setPosition(this.centerX, 90);
 
     const colX = this.centerX;
@@ -161,8 +162,13 @@ export class OptionScene extends BaseScene {
 
     this.musicToggle?.setPosition(colX, y); y += lineH + 10;
     this.sfxToggle?.setPosition(colX, y); y += lineH + 18;
-    this.musicSlider?.setPosition(colX, y); y += lineH + 18;
-    this.sfxSlider?.setPosition(colX, y); y += lineH + 24;
+    this.musicSlider?.setPosition(colX, y); 
+    // Update layout slider music sesuai ukuran baru
+    this.updateSliderLayout(this.musicSlider, 'Music Volume', (this as any).opts?.musicVol ?? 1);
+    y += lineH + 18;
+    this.sfxSlider?.setPosition(colX, y);
+    this.updateSliderLayout(this.sfxSlider, 'SFX Volume', (this as any).opts?.sfxVol ?? 1);
+    y += lineH + 24;
 
     const qY = y;
     const gap = 90;
@@ -190,7 +196,7 @@ export class OptionScene extends BaseScene {
     if (t) t.setText(text);
   }
 
-  private createSlider(y: number, label: string, initVal: number, onChange: (val: number) => void) {
+    private createSlider(y: number, label: string, initVal: number, onChange: (val: number) => void) {
     const trackW = Math.min(420, Math.round(this.scale.width * 0.8));
     const c = this.add.container(this.centerX, y);
 
@@ -202,7 +208,8 @@ export class OptionScene extends BaseScene {
     const track = this.add.rectangle(0, 10, trackW, 6, 0xcccccc).setOrigin(0.5);
     c.add(track);
 
-    const knob = this.add.circle(-trackW / 2 + trackW * initVal, 10, 10, 0x111111).setInteractive({ useHandCursor: true });
+    const knob = this.add.circle(-trackW / 2 + trackW * initVal, 10, 10, 0x111111)
+      .setInteractive({ useHandCursor: true });
     c.add(knob);
 
     const updateFromPointer = (px: number) => {
@@ -212,7 +219,8 @@ export class OptionScene extends BaseScene {
       knob.x = -trackW / 2 + trackW * v;
       lbl.setText(`${label}: ${Math.round(v * 100)}%`);
       onChange(v);
-      this.playSound('sfx_click', { volume: 0.2 });
+      // Dihilangkan: playSound saat drag agar tidak ada “setruman”
+      // this.playSound('sfx_click', { volume: 0.2 });
     };
 
     knob.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -316,5 +324,24 @@ export class OptionScene extends BaseScene {
         (this.textures as any).setDefaultFilter?.(Phaser.Textures.FilterMode.LINEAR);
       }
     } catch {}
+  }
+  private updateSliderLayout(cont: Phaser.GameObjects.Container | undefined, label: string, value01: number) {
+    if (!cont) return;
+    // anak-anak: [0]=label text, [1]=track rectangle, [2]=knob circle
+    const trackW = Math.min(420, Math.round(this.scale.width * 0.8));
+    const lbl = cont.getAt(0) as Phaser.GameObjects.Text | undefined;
+    const track = cont.getAt(1) as Phaser.GameObjects.Rectangle | undefined;
+    const knob = cont.getAt(2) as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse | Phaser.GameObjects.Circle | undefined;
+
+    lbl?.setText(`${label}: ${Math.round(value01 * 100)}%`).setOrigin(0.5).setPosition(0, -24);
+    if (track) {
+      track.setSize(trackW, 6).setPosition(0, 10);
+      // Phaser rectangle tidak auto redraw; recreate fill
+      track.width = trackW; (track as any).displayWidth = trackW;
+    }
+    if (knob && (knob as any)) {
+      const kx = -trackW / 2 + trackW * value01;
+      (knob as any).x = kx; (knob as any).y = 10;
+    }
   }
 }
