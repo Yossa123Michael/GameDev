@@ -1,5 +1,5 @@
 export type CreditItem = {
-  label: string;
+  label?: string;
   name?: string;
   url?: string;
   subtitle?: string; // NEW
@@ -17,7 +17,7 @@ const credits: CreditCategory[] = [
     title: 'Creator',
     layout: 'single',
     items: [
-      { label: 'Yossava Michael', url: 'https://twitter.com/Yossa123Michael'}
+      { name: 'Yossava Michael', url: 'https://twitter.com/Yossa123Michael'}
     ]
   },
   {
@@ -40,7 +40,7 @@ const credits: CreditCategory[] = [
     layout: 'two-column',
     subtitle: 'Backsound Artist',
     items: [
-      { label: 'MusicRevolution', name: 'Route 66 Blues - Loop', url: 'https://example.com/route-66', subtitle: 'Menu Theme' },
+      { label: 'MusicRevolution', name: 'Route 66 Blues - Loop', url: 'https://example.com/route-66'},
       
     ]
   },
@@ -57,7 +57,7 @@ const credits: CreditCategory[] = [
     title: 'Font',
     layout: 'single',
     items: [
-      { label: 'Nunito', url: 'https://fonts.google.com/specimen/Nunito', subtitle: 'Google Fonts' }
+      { name: 'Nunito', url: 'https://fonts.google.com/specimen/Nunito'}
     ]
   },
 ];
