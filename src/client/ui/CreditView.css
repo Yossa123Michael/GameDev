@@ -24,10 +24,19 @@
 
 .credit-category { margin: 24px 0 6px; }
 .category-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   text-align: center;
-  margin: 0 0 12px;
+  margin: 0 0 6px;
+}
+
+/* Subtitle kategori (teks kecil di bawah judul kategori) */
+.category-subtitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #000000;
+  text-align: center;
+  margin: -2px 0 10px;
 }
 
 /* Single list */
@@ -60,17 +69,27 @@
 .two-col-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  column-gap: 44px;      /* atur 40–48 jika perlu */
+  column-gap: 44px;
   align-items: center;
 }
 
 .col-left  { text-align: right; font-size: 15px; font-weight: 600; }
 .col-right { text-align: left;  font-size: 15px; font-weight: 700; }
 
+/* Subtitle item (teks kecil di bawah name) */
+.item-subtitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #000000;
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
 @media (max-width: 520px) {
   .credit-root  { max-width: 94%; padding: 10px 12px 42px; }
   .credit-title { font-size: 42px; margin: 26px 0 18px; }
-  .category-title { font-size: 20px; margin-bottom: 10px; }
+  .category-title { font-size: 20px; margin-bottom: 8px; }
   .two-col-row { column-gap: 38px; }
   .col-left, .col-right { font-size: 14px; }
+  .item-subtitle { font-size: 11.5px; }
 }

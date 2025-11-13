@@ -14,6 +14,8 @@ const CreditView = () => {
             return (
               <section className="credit-category two" key={category.title}>
                 <h2 className="category-title">{category.title}</h2>
+                {category.subtitle && <div className="category-subtitle">{category.subtitle}</div>}
+
                 <div className="two-col-block">
                   {category.items.map((it, idx) => (
                     <div className="two-col-row" key={idx}>
@@ -34,6 +36,7 @@ const CreditView = () => {
                         ) : (
                           <span className="plain-text strong">{it.name}</span>
                         )}
+                        {it.subtitle && <div className="item-subtitle">{it.subtitle}</div>}
                       </div>
                     </div>
                   ))}
@@ -45,6 +48,8 @@ const CreditView = () => {
           return (
             <section className="credit-category single" key={category.title}>
               <h2 className="category-title">{category.title}</h2>
+              {category.subtitle && <div className="category-subtitle">{category.subtitle}</div>}
+
               <ul className="single-list">
                 {category.items.map((it, idx) => (
                   <li className="single-item" key={idx}>
@@ -55,6 +60,7 @@ const CreditView = () => {
                     ) : (
                       <span className="plain-text strong">{it.name}</span>
                     )}
+                    {it.subtitle && <div className="item-subtitle">{it.subtitle}</div>}
                   </li>
                 ))}
               </ul>

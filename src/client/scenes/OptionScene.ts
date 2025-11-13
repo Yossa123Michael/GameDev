@@ -2,8 +2,6 @@ import { BaseScene } from './BaseScene';
 import { SettingsManager, clamp01 } from '../lib/Settings';
 import type { Settings } from '../lib/Settings';
 
-type GraphicsQuality = 'normal' | 'low';
-
 export class OptionScene extends BaseScene {
   private title?: Phaser.GameObjects.Text;
 
@@ -17,19 +15,14 @@ export class OptionScene extends BaseScene {
   private qualityLow?: Phaser.GameObjects.Container;
 
   private langText?: Phaser.GameObjects.Text;
-
   private vibrateToggle?: Phaser.GameObjects.Container;
 
   private resetBtn?: Phaser.GameObjects.Container;
   private confirmBox?: Phaser.GameObjects.Container;
-
   private versionText?: Phaser.GameObjects.Text;
 
-  // Settings via SettingsManager (single source of truth)
   private opts: Settings = SettingsManager.get();
-
-  // Unsubscribe holder (RENAME to avoid clash with BaseScene.settingsUnsub)
-  private optsUnsub?: () => void;
+  private settingsUnsub?: () => void;
 
   constructor() {
     super('OptionScene');
@@ -39,18 +32,16 @@ export class OptionScene extends BaseScene {
     super.create();
     super.createCommonButtons('MainMenuScene');
 
-    // Subscribe agar UI Options selalu sinkron jika horn mengubah settings
-    this.optsUnsub = SettingsManager.subscribe((s) => {
+    this.settingsUnsub = SettingsManager.subscribe((s) => {
       this.opts = s;
-      try { this.updateToggleLabel(this.musicToggle!, `Music: ${this.opts.musicOn ? 'On' : 'Off'}`); } catch {}
-      try { this.updateToggleLabel(this.sfxToggle!,   `SFX: ${this.opts.sfxOn   ? 'On' : 'Off'}`); } catch {}
-      try { this.applyOptions(this.opts); } catch {}
+      try { this.updateToggleLabel(this.musicToggle!, `Music: ${s.musicOn ? 'On' : 'Off'}`); } catch {}
+      try { this.updateToggleLabel(this.sfxToggle!,   `SFX: ${s.sfxOn   ? 'On' : 'Off'}`); } catch {}
+      this.applyOptions(this.opts);
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      try { this.optsUnsub?.(); } catch {}
+      try { this.settingsUnsub?.(); } catch {}
     });
 
-    // Terapkan state awal
     this.applyOptions(this.opts);
 
     // Title
@@ -76,15 +67,14 @@ export class OptionScene extends BaseScene {
       SettingsManager.save({ sfxOn: v });
       this.opts = SettingsManager.get();
       this.updateToggleLabel(this.sfxToggle!, `SFX: ${v ? 'On' : 'Off'}`);
-      // playSound akan membaca SettingsManager.get() sehingga tidak perlu applyOptions di sini
+      // Tidak panggil applyOptions karena fungsi itu hanya urus music & graphics
     });
     if (this.sfxToggle) this.sceneContentGroup.add(this.sfxToggle);
     y += 70;
 
     // Music volume slider
     this.musicSlider = this.createSlider(y, 'Music Volume', this.opts.musicVol, (val) => {
-      const v = clamp01(val);
-      SettingsManager.save({ musicVol: v });
+      SettingsManager.save({ musicVol: clamp01(val) });
       this.opts = SettingsManager.get();
       this.applyOptions(this.opts);
     });
@@ -93,8 +83,7 @@ export class OptionScene extends BaseScene {
 
     // SFX volume slider
     this.sfxSlider = this.createSlider(y, 'SFX Volume', this.opts.sfxVol, (val) => {
-      const v = clamp01(val);
-      SettingsManager.save({ sfxVol: v });
+      SettingsManager.save({ sfxVol: clamp01(val) });
       this.opts = SettingsManager.get();
     });
     if (this.sfxSlider) this.sceneContentGroup.add(this.sfxSlider);
@@ -124,7 +113,7 @@ export class OptionScene extends BaseScene {
     this.refreshQualityButtons();
     y += 60;
 
-    // Language (EN)
+    // Language (EN) – hardcoded tampilan
     this.langText = this.add.text(this.centerX, y, 'Language: EN', {
       fontFamily: 'Nunito', fontSize: '20px', color: '#555'
     }).setOrigin(0.5);
@@ -141,8 +130,8 @@ export class OptionScene extends BaseScene {
     if (this.vibrateToggle) this.sceneContentGroup.add(this.vibrateToggle);
     y += 70;
 
-    // Version (Global)
-    this.versionText = this.add.text(this.centerX, y, 'Version: Global', {
+    // Version
+    this.versionText = this.add.text(this.centerCenterX ?? this.centerX, y, 'Version: Global', {
       fontFamily: 'Nunito', fontSize: '20px', color: '#000'
     }).setOrigin(0.5);
     this.sceneContentGroup.add(this.versionText);
@@ -152,7 +141,7 @@ export class OptionScene extends BaseScene {
     this.resetBtn = this.createButton(y, 'Reset Progress (Local)', () => this.openConfirm());
     if (this.resetBtn) this.sceneContentGroup.add(this.resetBtn);
 
-    // Pointer cursor util atas
+    // Pointer cursor
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
       let over = false;
@@ -163,9 +152,7 @@ export class OptionScene extends BaseScene {
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.input.setDefaultCursor('default'));
   }
 
-  // PENTING: jangan panggil super.draw() di sini, supaya UI yang dibuat di create() tidak dihapus.
   public override draw() {
-    // Reposisi responsif
     this.title?.setPosition(this.centerX, 90);
 
     const colX = this.centerX;
@@ -188,8 +175,6 @@ export class OptionScene extends BaseScene {
     this.versionText?.setPosition(colX, y); y += lineH - 10;
     this.resetBtn?.setPosition(colX, y);
   }
-
-  // ===== Helpers UI & Apply =====
 
   private createToggle(y: number, label: string, init: boolean, onChange: (v: boolean) => void) {
     let state = init;
@@ -227,7 +212,7 @@ export class OptionScene extends BaseScene {
       knob.x = -trackW / 2 + trackW * v;
       lbl.setText(`${label}: ${Math.round(v * 100)}%`);
       onChange(v);
-      try { this.playSound('sfx_click', { volume: 0.2 }); } catch {}
+      this.playSound('sfx_click', { volume: 0.2 });
     };
 
     knob.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -305,10 +290,7 @@ export class OptionScene extends BaseScene {
   }
 
   private applyOptions(o: Settings) {
-    // Sinkronkan BaseScene.isMusicOn agar horn/icon mengikuti Options
-    try { (BaseScene as any).isMusicOn = !!o.musicOn; } catch {}
-
-    // Music on/off + volume
+    // Hanya mengatur music playback & graphics. Tidak mengubah runtime mute.
     try {
       if (!o.musicOn) {
         if (BaseScene.backgroundMusic?.isPlaying) BaseScene.backgroundMusic.pause();
@@ -320,16 +302,10 @@ export class OptionScene extends BaseScene {
       try { (BaseScene.backgroundMusic as any)?.setVolume?.(o.musicVol); } catch {}
     } catch {}
 
-    // update ikon horn sesuai Options.musicOn
+    // Update ikon horn berdasarkan runtime dan setting
     try {
-      const key = o.musicOn ? 'music_on' : 'music_off';
-      if (this.musicButton && 'setTexture' in this.musicButton) {
-        if (this.textures.exists(key)) {
-          try { (this.musicButton as Phaser.GameObjects.Image).setTexture(key); } catch {}
-        } else {
-          try { this.musicButton.setVisible(false).disableInteractive(); } catch {}
-        }
-      }
+      // Ikon sudah diatur oleh BaseScene saat runtime berubah; di sini kita bisa paksa sinkron jika perlu:
+      (this.scene.get(this.scene.key) as any)?.updateHornIcon?.();
     } catch {}
 
     // Graphics

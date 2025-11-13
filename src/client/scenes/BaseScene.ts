@@ -1,6 +1,46 @@
 import Phaser from 'phaser';
 import { SettingsManager } from '../lib/Settings';
 
+type AudioRuntime = {
+  hornIconMuted: boolean;
+  musicRuntimeMuted: boolean;
+  sfxRuntimeMuted: boolean;
+};
+
+const LS_SETTINGS_KEY = 'rk:settings';
+const LS_RUNTIME_KEY  = 'rk:audioRuntime';
+
+function loadRuntime(): AudioRuntime {
+  try {
+    const raw = localStorage.getItem(LS_RUNTIME_KEY);
+    if (!raw) return { hornIconMuted: false, musicRuntimeMuted: false, sfxRuntimeMuted: false };
+    const p = JSON.parse(raw) as Partial<AudioRuntime>;
+    return {
+      hornIconMuted: !!p.hornIconMuted,
+      musicRuntimeMuted: !!p.musicRuntimeMuted,
+      sfxRuntimeMuted: !!p.sfxRuntimeMuted
+    };
+  } catch {
+    return { hornIconMuted: false, musicRuntimeMuted: false, sfxRuntimeMuted: false };
+  }
+}
+
+function saveRuntime(patch: Partial<AudioRuntime>): AudioRuntime {
+  const cur = loadRuntime();
+  const next: AudioRuntime = { ...cur, ...patch };
+  try { localStorage.setItem(LS_RUNTIME_KEY, JSON.stringify(next)); } catch {}
+  return next;
+}
+
+// Ground truth settings (enable flags)
+function readSettings(): any {
+  try {
+    const raw = localStorage.getItem(LS_SETTINGS_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch { return {}; }
+}
+
 export class BaseScene extends Phaser.Scene {
   protected centerX!: number;
   protected centerY!: number;
@@ -9,7 +49,6 @@ export class BaseScene extends Phaser.Scene {
   protected backButton!: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle | undefined;
   protected sceneContentGroup!: Phaser.GameObjects.Group;
 
-  protected static isMusicOn = true;
   protected static backgroundMusic: Phaser.Sound.BaseSound | null = null;
 
   private settingsUnsub?: () => void;
@@ -29,26 +68,22 @@ export class BaseScene extends Phaser.Scene {
     console.log('BaseScene preload finished.');
   }
 
-  create() {
+  public override create() {
     console.log('BaseScene create starting...');
     this.updateCenter();
 
-    if (this.cameras && this.cameras.main) {
+    if (this.cameras?.main) {
       this.cameras.main.setViewport(0, 0, this.scale.width, this.scale.height);
     }
 
     try {
-      this.add
-        .image(this.centerX, this.centerY, 'background')
+      this.add.image(this.centerX, this.centerY, 'background')
         .setName('background_base')
         .setDisplaySize(this.scale.width, this.scale.height)
         .setDepth(-1);
-    } catch (e) {
-      console.error('Gagal membuat background image:', e);
-      this.add
-        .rectangle(this.centerX, this.centerY, this.scale.width, this.scale.height, 0x000000)
-        .setOrigin(0.5)
-        .setDepth(-1);
+    } catch {
+      this.add.rectangle(this.centerX, this.centerY, this.scale.width, this.scale.height, 0x000000)
+        .setOrigin(0.5).setDepth(-1);
     }
 
     this.sceneContentGroup = this.add.group().setName('sceneContentGroup_base');
@@ -56,7 +91,6 @@ export class BaseScene extends Phaser.Scene {
     this.scale.on('resize', this.handleResize, this);
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.handleResize, this);
-      // unsubscribe settings subscription jika ada
       try { this.settingsUnsub?.(); } catch {}
     });
 
@@ -65,93 +99,31 @@ export class BaseScene extends Phaser.Scene {
       this.handleResize(this.scale.gameSize);
     });
 
-    // Ambil settings dari SettingsManager (single source of truth)
-    const s = SettingsManager.get();
-    BaseScene.isMusicOn = s.musicOn ?? BaseScene.isMusicOn;
-
-    // Musik global mengikuti saved option
-    if (!BaseScene.backgroundMusic && BaseScene.isMusicOn) {
-      if (this.cache.audio.exists('bgm')) {
-        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: s.musicVol ?? 0.5 });
-        try { BaseScene.backgroundMusic.play(); } catch {}
-      } else {
-        console.warn("Audio key 'bgm' not found.");
-      }
-    } else if (BaseScene.backgroundMusic && !BaseScene.isMusicOn) {
-      BaseScene.backgroundMusic.pause();
-    } else if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) {
-      BaseScene.backgroundMusic.resume();
-    }
-    try { (BaseScene.backgroundMusic as any)?.setVolume?.(s.musicVol ?? 0.5); } catch {}
-
-    // Graphics quality
-    try {
-      if (s.graphics === 'low') {
-        (this.textures as any).setDefaultFilter?.(Phaser.Textures.FilterMode.NEAREST);
-      } else {
-        (this.textures as any).setDefaultFilter?.(Phaser.Textures.FilterMode.LINEAR);
-      }
-    } catch {}
+    // Apply initial playback based on settings + runtime mute
+    this.applyInitialAudioState();
 
     this.createCommonButtons();
 
-    // Pastikan icon mencerminkan current saved option
-    const iconKey = (SettingsManager.get().musicOn ? 'music_on' : 'music_off');
-    if (this.musicButton && 'setTexture' in this.musicButton) {
-      if (this.textures.exists(iconKey)) {
-        try { (this.musicButton as Phaser.GameObjects.Image).setTexture(iconKey); } catch {}
-      } else {
-        try { this.musicButton.setVisible(false).disableInteractive(); } catch {}
-      }
-      try { this.musicButton.setName('musicButton_base'); } catch {}
-    }
-    if (this.backButton) try { this.backButton.setName('backButton_base'); } catch {}
+    // Subscribe ke SettingsManager agar kalau user ubah Option (enable flags) kita re-evaluasi playback,
+    // TIDAK menyentuh runtime mute (horn state tetap).
+    this.settingsUnsub = SettingsManager.subscribe(() => {
+      this.reapplyAfterOptionChange();
+    });
 
-    // Unlock audio after first user gesture
+    // Unlock audio setelah gesture pertama
     this.input?.once?.('pointerdown', () => {
       try {
         this.sound.unlock();
-        if (BaseScene.backgroundMusic && BaseScene.isMusicOn && !BaseScene.backgroundMusic.isPlaying) {
+        const rt = loadRuntime();
+        const st = SettingsManager.get();
+        if (st.musicOn && !rt.musicRuntimeMuted && BaseScene.backgroundMusic && !BaseScene.backgroundMusic.isPlaying) {
           BaseScene.backgroundMusic.play();
-        }
-      } catch {}
-    });
-
-    // Subscribe to settings changes so horn stays in sync when Options change
-    this.settingsUnsub = SettingsManager.subscribe((newSettings) => {
-      // update BaseScene.isMusicOn and music playback
-      try {
-        BaseScene.isMusicOn = !!newSettings.musicOn;
-        // music playback follows SETTINGS (only if music option is allowed)
-        if (BaseScene.backgroundMusic) {
-          if (newSettings.musicOn) {
-            try { if (!BaseScene.backgroundMusic.isPlaying) BaseScene.backgroundMusic.resume(); } catch {}
-          } else {
-            try { BaseScene.backgroundMusic.pause(); } catch {}
-          }
-        } else if (newSettings.musicOn) {
-          if (this.cache.audio.exists('bgm')) {
-            BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: newSettings.musicVol ?? 0.5 });
-            try { BaseScene.backgroundMusic.play(); } catch {}
-          }
-        }
-        try { (BaseScene.backgroundMusic as any)?.setVolume?.(newSettings.musicVol ?? 0.5); } catch {}
-      } catch (e) { console.warn('Failed to apply settings change in BaseScene:', e); }
-
-      // update icon
-      try {
-        const key = newSettings.musicOn ? 'music_on' : 'music_off';
-        if (this.musicButton && 'setTexture' in this.musicButton) {
-          if (this.textures.exists(key)) {
-            try { (this.musicButton as Phaser.GameObjects.Image).setTexture(key); } catch {}
-          }
         }
       } catch {}
     });
 
     console.log('BaseScene create finished.');
 
-    // deferred draw
     this.time.delayedCall(0, () => {
       if (typeof (this as any).draw === 'function') {
         try { (this as any).draw(); } catch (e) { console.warn('deferred draw() failed:', e); }
@@ -159,27 +131,50 @@ export class BaseScene extends Phaser.Scene {
     });
   }
 
-  protected updateCenter() {
-    this.centerX = Math.floor(this.scale.width / 2);
-    this.centerY = Math.floor(this.scale.height / 2);
+  private applyInitialAudioState() {
+    const settings = SettingsManager.get(); // enable flags
+    const rt = loadRuntime();
+
+    // Music instance
+    if (!BaseScene.backgroundMusic && this.cache.audio.exists('bgm')) {
+      BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: settings.musicVol ?? 0.5 });
+    }
+
+    // Decide play/pause
+    if (BaseScene.backgroundMusic) {
+      if (settings.musicOn && !rt.musicRuntimeMuted) {
+        try { if (!BaseScene.backgroundMusic.isPlaying) BaseScene.backgroundMusic.play(); } catch {}
+      } else {
+        try { if (BaseScene.backgroundMusic.isPlaying) BaseScene.backgroundMusic.pause(); } catch {}
+      }
+      try { (BaseScene.backgroundMusic as any)?.setVolume?.(settings.musicVol ?? 0.5); } catch {}
+    }
   }
 
-  protected handleResize = (gameSize: Phaser.Structs.Size) => {
-    if (!this.cameras || !this.cameras.main || !this.scale) return;
+  private reapplyAfterOptionChange() {
+    const settings = SettingsManager.get();
+    const rt = loadRuntime();
 
-    const { width, height } = gameSize;
-    this.cameras.main.setViewport(0, 0, width, height);
-
-    const bg = this.children.getByName?.('background_base') as Phaser.GameObjects.Image | undefined;
-    if (bg) bg.setDisplaySize(width, height).setPosition(width / 2, height / 2);
-
-    this.updateCenter();
-    this.layoutCommonButtons();
-
-    if (typeof (this as any).draw === 'function') {
-      try { (this as any).draw(); } catch (e) { console.warn('draw() on resize failed:', e); }
+    // Music playback mengikuti (musicOn && !runtimeMuted)
+    if (BaseScene.backgroundMusic) {
+      try {
+        if (settings.musicOn && !rt.musicRuntimeMuted) {
+          if (!BaseScene.backgroundMusic.isPlaying) BaseScene.backgroundMusic.resume();
+        } else {
+          if (BaseScene.backgroundMusic.isPlaying) BaseScene.backgroundMusic.pause();
+        }
+        (BaseScene.backgroundMusic as any)?.setVolume?.(settings.musicVol ?? 0.5);
+      } catch {}
+    } else if (settings.musicOn && !rt.musicRuntimeMuted) {
+      if (this.cache.audio.exists('bgm')) {
+        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: settings.musicVol ?? 0.5 });
+        try { BaseScene.backgroundMusic.play(); } catch {}
+      }
     }
-  };
+
+    // Update icon
+    this.updateHornIcon();
+  }
 
   protected getUIIconMetrics() {
     const sMin = Math.min(this.scale.width, this.scale.height);
@@ -193,40 +188,37 @@ export class BaseScene extends Phaser.Scene {
     try { if (this.backButton)  { (this.backButton  as any).destroy?.(); this.backButton  = undefined; } } catch {}
 
     const { pad, iconSize } = this.getUIIconMetrics();
+    const rt = loadRuntime();
 
-    const musicKey =
-      this.textures.exists('music_on') || this.textures.exists('music_off')
-        ? (SettingsManager.get().musicOn ? 'music_on' : 'music_off')
-        : null;
+    const textureKey = rt.hornIconMuted ? 'music_off' : 'music_on';
+    const existsAny = this.textures.exists('music_on') || this.textures.exists('music_off');
 
-    if (musicKey) {
-      const img = this.add
-        .image(this.scale.width - pad, pad, musicKey)
+    if (existsAny) {
+      const img = this.add.image(this.scale.width - pad, pad, textureKey)
         .setOrigin(1, 0)
-        .setDisplaySize(iconSize, iconSize);
+        .setDisplaySize(iconSize, iconSize)
+        .setDepth(2000)
+        .setScrollFactor(0)
+        .setInteractive({ useHandCursor: true });
 
-      img.setInteractive({ useHandCursor: true });
-      img.setDepth(1000);
-      img.setScrollFactor(0);
-
-      (img as Phaser.GameObjects.Image).on('pointerup', () => {
-        console.log('Corner music button clicked');
-        this.toggleCornerAudio();
+      img.on('pointerup', () => {
+        this.toggleHorn();
       });
 
       this.musicButton = img;
     } else {
-      const g = this.add.rectangle(this.scale.width - pad, pad, iconSize, iconSize, 0x333333).setOrigin(1, 0);
+      const g = this.add.rectangle(this.scale.width - pad, pad, iconSize, iconSize, 0x222222)
+        .setOrigin(1, 0).setDepth(2000);
       g.setVisible(false);
       this.musicButton = g;
     }
 
     if (this.textures.exists('back_arrow')) {
-      this.backButton = this.add
-        .image(pad, pad, 'back_arrow')
+      this.backButton = this.add.image(pad, pad, 'back_arrow')
         .setOrigin(0, 0)
         .setInteractive({ useHandCursor: true })
-        .setDisplaySize(iconSize, iconSize);
+        .setDisplaySize(iconSize, iconSize)
+        .setDepth(2000);
 
       (this.backButton as Phaser.GameObjects.Image).on('pointerup', () => {
         let target = targetBackSceneKey || 'MainMenuScene';
@@ -235,13 +227,12 @@ export class BaseScene extends Phaser.Scene {
         else if (this.scene.key === 'GameScene') target = 'PilihKesulitanScene';
         else if (this.scene.key === 'ResultsScene') target = 'MainMenuScene';
 
-        try { this.playSound('sfx_click', { volume: 0.7 }); } catch {}
+        this.playSound('sfx_click', { volume: 0.7 });
         if (target === 'PilihKesulitanScene' && (this as any).mode) this.scene.start(target, { mode: (this as any).mode });
         else this.scene.start(target);
       });
     } else {
-      const g = this.add.rectangle(pad, pad, iconSize, iconSize, 0x333333).setOrigin(0, 0);
-      g.setVisible(false);
+      const g = this.add.rectangle(pad, pad, iconSize, iconSize, 0x333333).setOrigin(0, 0).setVisible(false).setDepth(2000);
       this.backButton = g;
     }
 
@@ -250,134 +241,126 @@ export class BaseScene extends Phaser.Scene {
 
   protected layoutCommonButtons() {
     const { pad, iconSize } = this.getUIIconMetrics();
-    try {
-      this.musicButton?.setPosition(this.scale.width - pad, pad).setDisplaySize(iconSize, iconSize);
-      try { (this.musicButton as any).setDepth?.(1000); } catch {}
-    } catch {}
-    try { this.backButton?.setPosition(pad, pad).setDisplaySize(iconSize, iconSize); } catch {}
+    this.musicButton?.setPosition(this.scale.width - pad, pad).setDisplaySize(iconSize, iconSize).setDepth(2000);
+    this.backButton?.setPosition(pad, pad).setDisplaySize(iconSize, iconSize).setDepth(2000);
   }
 
-  protected toggleMusic() {
-    // legacy toggleMusic remains; update settings via SettingsManager
-    const newMusicOn = !SettingsManager.get().musicOn;
-    SettingsManager.save({ musicOn: newMusicOn });
-    BaseScene.isMusicOn = newMusicOn;
-
-    if (BaseScene.backgroundMusic) {
-      if (BaseScene.isMusicOn) {
-        if (!BaseScene.backgroundMusic.isPlaying) {
-          try { BaseScene.backgroundMusic.resume(); } catch { try { BaseScene.backgroundMusic.play(); } catch {} }
-        }
-      } else {
-        BaseScene.backgroundMusic.pause();
-      }
-    } else if (BaseScene.isMusicOn) {
-      if (this.cache.audio.exists('bgm')) {
-        BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: SettingsManager.get().musicVol ?? 0.5 });
-        try { BaseScene.backgroundMusic.play(); } catch {}
-      }
+  private updateHornIcon() {
+    const rt = loadRuntime();
+    const textureKey = rt.hornIconMuted ? 'music_off' : 'music_on';
+    if (this.musicButton && 'setTexture' in this.musicButton && this.textures.exists(textureKey)) {
+      (this.musicButton as Phaser.GameObjects.Image).setTexture(textureKey);
     }
-
-    const key = BaseScene.isMusicOn ? 'music_on' : 'music_off';
-    if (this.musicButton && 'setTexture' in this.musicButton) {
-      if (this.textures.exists(key)) {
-        try { (this.musicButton as Phaser.GameObjects.Image).setTexture(key); } catch {}
-      } else {
-        try { this.musicButton.setVisible(false).disableInteractive(); } catch {}
-      }
-    }
-
-    console.log('Music Toggled:', BaseScene.isMusicOn);
   }
 
-  // Horn / corner button: hanya toggle kategori yang saat itu di-ON-kan di Options
-  protected toggleCornerAudio() {
-    const s = SettingsManager.get();
-    const musicOn = !!s.musicOn;
-    const sfxOn = !!s.sfxOn;
+  // Horn logic: ALWAYS toggle icon. Does NOT change settings enable flags.
+  private toggleHorn() {
+    const settings = readSettings(); // enable flags
+    let rt = loadRuntime();
 
-    // Jika keduanya OFF di Options => tidak melakukan perubahan apapun
-    if (!musicOn && !sfxOn) {
-      console.log('Corner button clicked but both music & sfx are OFF in Options; no action taken.');
+    const musicOn = !!settings.musicOn;
+    const sfxOn   = !!settings.sfxOn;
+
+    if (musicOn && sfxOn) {
+  // Sebelumnya:
+  // const willMute = !(rt.musicRuntimeMuted === false && rt.sfxRuntimeMuted === false);
+
+  // Perbaikan (toggle biner yang benar):
+  const nextMute = !(rt.musicRuntimeMuted || rt.sfxRuntimeMuted);
+
+  rt = saveRuntime({
+    musicRuntimeMuted: nextMute,
+    sfxRuntimeMuted: nextMute,
+    hornIconMuted: nextMute
+  });
+
+  // Playback music mengikuti hasil runtime
+  this.applyMusicRuntime(musicOn, rt.musicRuntimeMuted, settings.musicVol ?? 0.5);
+
+  // Putar klik hanya jika setelah toggle SFX aktif (tidak runtime-mute) dan SFX di Options ON
+  if (!rt.sfxRuntimeMuted && sfxOn) {
+    this.playSound('sfx_click', { volume: 0.7 });
+  }
+}
+    else if (musicOn && !sfxOn) {
+      // Toggle hanya music runtime mute
+      const willMute = !rt.musicRuntimeMuted;
+      rt = saveRuntime({
+        musicRuntimeMuted: willMute,
+        hornIconMuted: willMute
+      });
+      this.applyMusicRuntime(musicOn, rt.musicRuntimeMuted, settings.musicVol ?? 0.5);
+      // Tidak ada click sound karena SFX disabled di options
+    } else if (!musicOn && sfxOn) {
+      // Toggle hanya sfx runtime mute
+      const willMute = !rt.sfxRuntimeMuted;
+      rt = saveRuntime({
+        sfxRuntimeMuted: willMute,
+        hornIconMuted: willMute
+      });
+      // Mainkan click hanya jika hasil akhirnya tidak muted
+      if (!rt.sfxRuntimeMuted && sfxOn) {
+        this.playSound('sfx_click', { volume: 0.7 });
+      }
+    } else {
+      // Keduanya disabled: hanya toggle ikon
+      rt = saveRuntime({ hornIconMuted: !rt.hornIconMuted });
+      // No audio changes
+    }
+
+    this.updateHornIcon();
+  }
+
+  private applyMusicRuntime(enabled: boolean, runtimeMuted: boolean, vol: number) {
+    if (!enabled) {
+      try { BaseScene.backgroundMusic?.pause(); } catch {}
       return;
     }
-
-    // Jika keduanya ON => toggle keduanya
-    if (musicOn && sfxOn) {
-      const newMusicOn = !musicOn;
-      const newSfxOn = !sfxOn;
-      SettingsManager.save({ musicOn: newMusicOn, sfxOn: newSfxOn });
-      BaseScene.isMusicOn = newMusicOn;
-
-      if (BaseScene.backgroundMusic) {
-        try {
-          if (newMusicOn) {
-            if (!BaseScene.backgroundMusic.isPlaying) {
-              try { BaseScene.backgroundMusic.resume(); } catch { try { BaseScene.backgroundMusic.play(); } catch {} }
-            }
-          } else {
-            BaseScene.backgroundMusic.pause();
-          }
-        } catch {}
-      } else if (newMusicOn) {
-        if (this.cache.audio.exists('bgm')) {
-          BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: SettingsManager.get().musicVol ?? 0.5 });
-          try { BaseScene.backgroundMusic.play(); } catch {}
-        }
-      }
-
-      // Putar click hanya bila sfx akhir aktif
-      try { if (SettingsManager.get().sfxOn) this.playSound('sfx_click', { volume: 0.7 }); } catch {}
-    } else {
-      // Hanya satu kategori ON di options => toggle hanya kategori tsb
-      if (musicOn && !sfxOn) {
-        const newMusicOn = !musicOn;
-        SettingsManager.save({ musicOn: newMusicOn });
-        BaseScene.isMusicOn = newMusicOn;
-
-        if (BaseScene.backgroundMusic) {
-          try {
-            if (newMusicOn) {
-              if (!BaseScene.backgroundMusic.isPlaying) {
-                try { BaseScene.backgroundMusic.resume(); } catch { try { BaseScene.backgroundMusic.play(); } catch {} }
-              }
-            } else {
-              BaseScene.backgroundMusic.pause();
-            }
-          } catch {}
-        } else if (newMusicOn) {
-          if (this.cache.audio.exists('bgm')) {
-            BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: SettingsManager.get().musicVol ?? 0.5 });
-            try { BaseScene.backgroundMusic.play(); } catch {}
-          }
-        }
-        // Jangan mainkan click sound karena SFX di options OFF
-      } else if (!musicOn && sfxOn) {
-        const newSfxOn = !sfxOn;
-        SettingsManager.save({ sfxOn: newSfxOn });
-        // Jika sekarang sfx diaktifkan, mainkan click sebagai konfirmasi
-        try { if (SettingsManager.get().sfxOn) this.playSound('sfx_click', { volume: 0.7 }); } catch {}
-      }
+    if (!BaseScene.backgroundMusic && this.cache.audio.exists('bgm')) {
+      BaseScene.backgroundMusic = this.sound.add('bgm', { loop: true, volume: vol ?? 0.5 });
     }
-
-    // Update icon horn agar merefleksikan saved option.musicOn
-    const iconKey = (SettingsManager.get().musicOn ? 'music_on' : 'music_off');
-    if (this.musicButton && 'setTexture' in this.musicButton) {
-      if (this.textures.exists(iconKey)) {
-        try { (this.musicButton as Phaser.GameObjects.Image).setTexture(iconKey); } catch {}
-      }
+    if (BaseScene.backgroundMusic) {
+      try {
+        if (runtimeMuted) {
+          if (BaseScene.backgroundMusic.isPlaying) BaseScene.backgroundMusic.pause();
+        } else {
+          if (!BaseScene.backgroundMusic.isPlaying) {
+            try { BaseScene.backgroundMusic.resume(); } catch { BaseScene.backgroundMusic.play(); }
+          }
+          (BaseScene.backgroundMusic as any)?.setVolume?.(vol ?? 0.5);
+        }
+      } catch {}
     }
   }
 
-  // SFX aware settings
+  // Override playSound agar hormati runtime mute SFX
   protected playSound(key: string, config?: Phaser.Types.Sound.SoundConfig) {
-    const s = SettingsManager.get();
-    if (s.sfxOn === false) return;
-    const vol = (config?.volume ?? 1) * (s.sfxVol ?? 1);
+    const settings = readSettings();
+    const rt = loadRuntime();
+    if (!settings.sfxOn) return;
+    if (rt.sfxRuntimeMuted) return;
+    const vol = (config?.volume ?? 1) * (settings.sfxVol ?? 1);
     try { if (this.cache.audio.exists(key)) this.sound.play(key, { ...config, volume: vol }); } catch {}
   }
 
-  // Helper tombol reusable
+  protected handleResize = (gameSize: Phaser.Structs.Size) => {
+    if (!this.cameras?.main || !this.scale) return;
+    const { width, height } = gameSize;
+    this.cameras.main.setViewport(0, 0, width, height);
+    const bg = this.children.getByName('background_base') as Phaser.GameObjects.Image | undefined;
+    if (bg) bg.setDisplaySize(width, height).setPosition(width / 2, height / 2);
+    this.updateCenter();
+    this.layoutCommonButtons();
+    if (typeof (this as any).draw === 'function') {
+      try { (this as any).draw(); } catch (e) { console.warn('draw() on resize failed:', e); }
+    }
+  };
+
+  protected updateCenter() {
+    this.centerX = Math.floor(this.scale.width / 2);
+    this.centerY = Math.floor(this.scale.height / 2);
+  }
+
   protected createButton(y: number, label: string, onClick?: () => void): Phaser.GameObjects.Container {
     const width = Math.round(this.scale.width * 0.86);
     const height = Math.max(48, Math.round(this.scale.height * 0.08));
@@ -429,7 +412,6 @@ export class BaseScene extends Phaser.Scene {
     graphics.clear();
     graphics.lineStyle(strokeWidth, strokeColor, 1);
     graphics.fillStyle(fillColor, 1);
-
     const x = -width / 2;
     const y = -height / 2;
     graphics.fillRoundedRect(x, y, width, height, radius);
