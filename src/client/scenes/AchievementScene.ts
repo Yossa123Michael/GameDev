@@ -10,7 +10,6 @@ export class AchievementScene extends BaseScene {
   }
 
   public override draw() {
-    // 1. Bersihkan group & listener lama
     super.draw();
     if (!this.sceneContentGroup) return;
     this.input.off(Phaser.Input.Events.POINTER_DOWN);
@@ -18,7 +17,7 @@ export class AchievementScene extends BaseScene {
     this.input.off(Phaser.Input.Events.GAME_OUT);
     this.input.setDefaultCursor('default');
 
-    //Buat elemen Font
+    //Element Font
     const title = this.add.text(this.centerX, this.scale.height * 0.2, 'Achievement', {
         fontFamily: 'Nunito', fontSize: '48px', color: '#000', stroke: '#fff', strokeThickness: 4,
       }).setOrigin(0.5);

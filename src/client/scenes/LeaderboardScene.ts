@@ -17,23 +17,14 @@ export class LeaderboardScene extends BaseScene {
   private lastSub: LastSub | null = null;
   private deviceBest: number | null = null;
 
-  // index baris user di Top 100 (jika ada)
   private inTop100Index: number | null = null;
 
-  // UI / scroll
   private listContainer?: Phaser.GameObjects.Container;
   private maskGraphics?: Phaser.GameObjects.Graphics;
   private scrollArea?: Phaser.GameObjects.Rectangle;
   private scrollY = 0;
   private scrollDrag = { active: false, startY: 0, baseScroll: 0 };
   private contentHeight = 0;
-
-  // cache ukuran area list
-  private area = { left: 0, top: 120, width: 0, height: 0 };
-
-  // metrics baris
-  private rowH = 60;
-  private rowGap = 14;
 
   private statusText?: Phaser.GameObjects.Text;
 
@@ -47,7 +38,7 @@ export class LeaderboardScene extends BaseScene {
 
   constructor() { super('LeaderboardScene'); }
 
-  public async create() {
+  public override async create() {
     super.create();
     this.createCommonButtons('MainMenuScene');
 
@@ -56,24 +47,25 @@ export class LeaderboardScene extends BaseScene {
     this.scrollY = 0;
     this.inTop100Index = null;
 
-    await this.loadDataFast(); // cepat: 1 query top100 + auth
+    await this.loadDataFast(); 
     if (!this.alive) return;
 
     this.setupScrollArea();
     this.safeDraw();
 
-    // Jadwalkan re-render kecil untuk berjaga saat resize/fit pertama
     this.time.delayedCall(50, () => this.safeDraw());
     this.time.delayedCall(150, () => this.safeDraw());
 
-    // Rank global dihitung “belakangan” agar UI cepat
     this.computeRankInBackground();
 
     this.events.once('shutdown', () => { this.alive = false; this.cleanupListeners(); });
     this.events.once('destroy',  () => { this.alive = false; this.cleanupListeners(); });
   }
 
-  // Render tanpa super.draw() supaya tidak blank jika ada error di tengah
+    public override draw() {
+    this.safeDraw();
+  }
+
   private safeDraw() {
     if (!this.alive) return;
 
@@ -84,19 +76,15 @@ export class LeaderboardScene extends BaseScene {
     }
 
     try {
-      // Hapus judul lama
       const prevTitle = this.children.getByName?.('leaderboard_title');
       if (prevTitle) { try { prevTitle.destroy(); } catch {} }
 
-      // Bersihkan isi listContainer (tanpa menghapus containernya)
       const copy = this.listContainer.list.slice();
       copy.forEach(c => { try { c.destroy(true); } catch {} });
 
-      // Hapus fixed row lama
       const ex = this.children.getByName?.('fixed_my_row');
       if (ex) { try { ex.destroy(); } catch {} }
 
-      // Judul
       const title = this.add.text(this.centerX, 80, 'Leaderboard', {
         fontFamily: 'Nunito', fontSize: '36px', color: '#000'
       }).setOrigin(0.5).setDepth(5);
@@ -298,10 +286,6 @@ export class LeaderboardScene extends BaseScene {
     if (this.scrollY > maxScroll) this.scrollY = maxScroll;
   }
 
-  // draw() dikosongkan; gunakan safeDraw
-    public override draw() {
-    this.safeDraw();
-  }
 
   private buildList() {
     if (!this.listContainer) return;
@@ -390,7 +374,9 @@ export class LeaderboardScene extends BaseScene {
 
   private createRow(xLeft: number, yTop: number, width: number, data: { rank: string; name: string; score: string }, isHeader = false, isMe = false) {
     const height = this.rowH;
-    const radius = Math.min(20, Math.round(height * 0.35));
+    // Match menu button radius and border thickness
+    const radius = Math.min(24, Math.round(height * 0.35));
+    const strokeWidth = 3;
 
     const c = this.add.container(xLeft, yTop);
     c.setSize(width, height);
@@ -398,7 +384,7 @@ export class LeaderboardScene extends BaseScene {
     const g = this.add.graphics();
     const fill = isHeader ? 0xf2f2f2 : (isMe ? 0xd4edda : 0xffffff);
     const stroke = isHeader ? 0x999999 : (isMe ? 0x28a745 : 0x000000);
-    g.lineStyle(2, stroke, 1).fillStyle(fill, 1);
+    g.lineStyle(strokeWidth, stroke, 1).fillStyle(fill, 1);
     g.fillRoundedRect(0, 0, width, height, radius);
     g.strokeRoundedRect(0, 0, width, height, radius);
     c.add(g);

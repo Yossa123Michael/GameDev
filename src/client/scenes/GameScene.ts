@@ -18,7 +18,8 @@ const difficultySettings: Record<DifficultyKey, DifficultyConfig> = {
   mudah:    { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 1,   timeMultiplier: 1,   timeCeiling: false, mix: { mudah: 0.9, menengah: 0.1, sulit: 0.0 } },
   menengah: { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 2,   timeMultiplier: 1.5, timeCeiling: true,  mix: { mudah: 0.1, menengah: 0.8, sulit: 0.1 } },
   sulit:    { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 2, scoreBase: 2.5, timeMultiplier: 2,   timeCeiling: true,  mix: { mudah: 0.0, menengah: 0.1, sulit: 0.9 } },
-  pro:      { totalQuestions: 20, totalTime: 150, perQuestionTime: 10, initialLives: 1, scoreBase: 5,   timeMultiplier: 2,   timeCeiling: false, mix: { sulit: 1.0 } },
+  // FIX: penuhi tipe mix (mudah & menengah wajib ada)
+  pro:      { totalQuestions: 20, totalTime: 150, perQuestionTime: 10, initialLives: 1, scoreBase: 5,   timeMultiplier: 2,   timeCeiling: false, mix: { mudah: 0.0, menengah: 0.0, sulit: 1.0 } },
 };
 
 export class Game extends BaseScene {
@@ -45,17 +46,6 @@ export class Game extends BaseScene {
   private questionText: Phaser.GameObjects.Text | null = null;
 
   private activeOptionButtons: Phaser.GameObjects.Container[] = [];
-
-  private getHudFontPx() {
-    const s = Math.min(this.scale.width, this.scale.height);
-    // skala aman untuk mobile kecil
-    return Math.max(14, Math.round(s * 0.035));
-  }
-  private getQuestionFontPx() {
-    // skala relatif terhadap lebar/tinggi; batasi agar tidak kebesaran di mobile
-    const f = Math.min(this.scale.width * 0.055, this.scale.height * 0.06);
-    return Math.max(16, Math.round(f));
-  }
 
   // guard klik ganda
   private isLocked = false;
@@ -106,6 +96,16 @@ export class Game extends BaseScene {
     this.clearOptionButtons();
     this.timerEvent?.remove();
     this.timerEvent = null;
+  }
+
+  // Responsif: skala font HUD & pertanyaan
+  private getHudFontPx() {
+    const s = Math.min(this.scale.width, this.scale.height);
+    return Math.max(14, Math.round(s * 0.035));
+  }
+  private getQuestionFontPx() {
+    const f = Math.min(this.scale.width * 0.055, this.scale.height * 0.06);
+    return Math.max(16, Math.round(f));
   }
 
   private buildHUD() {
@@ -193,7 +193,7 @@ export class Game extends BaseScene {
     }).setOrigin(0.5);
 
     const startY = this.scale.height * 0.38;
-    const space  = Math.max(56, Math.round(this.scale.height * 0.10));
+    const space = Math.max(56, Math.round(this.scale.height * 0.10));
     q.options.forEach((opt, i) => {
       const y = startY + i * space;
       this.createOptionButton(y, opt, () => this.onChoose(i));
@@ -219,7 +219,7 @@ export class Game extends BaseScene {
 
     const txt = this.add.text(0, 0, label, {
       fontFamily: 'Nunito',
-      fontSize: `${Math.max(16, Math.floor(height * 0.38))}px`,
+      fontSize: `${Math.max(14, Math.floor(height * 0.38))}px`,
       color: '#000',
       align: 'center',
       wordWrap: { width: Math.floor(width * 0.9) }
@@ -282,14 +282,13 @@ export class Game extends BaseScene {
       const elapsedSec = Math.max(0, Math.min(10, Math.floor((this.time.now - this.questionStartMs) / 1000)));
       const base = this.cfg.scoreBase;
       const bonus = Math.max(0, (10 - elapsedSec)) * this.cfg.timeMultiplier;
-      const add = base + bonus; // Base + (10 - detik) * timeMultiplier
+      const add = base + bonus;
 
       if (correct) {
         this.score += add;
         this.scoreText?.setText(`Skor: ${this.score.toFixed(1)}`);
         this.gotoNextQuestion(200);
       } else {
-        // Sorot jawaban benar dengan hijau, TANPA teks penjelasan
         this.highlightCorrect(correctIdx);
         this.gotoNextQuestion(900);
       }
@@ -363,20 +362,20 @@ export class Game extends BaseScene {
     }
 
     if (this.activeOptionButtons.length > 0) {
-      const width  = Math.round(this.scale.width * 0.9);
+      const width = Math.round(this.scale.width * 0.9);
       const height = Math.max(48, Math.round(this.scale.height * 0.08));
       const radius = Math.min(24, Math.floor(height * 0.35));
       const startY = this.scale.height * 0.38;
-      const space  = Math.max(56, Math.round(this.scale.height * 0.10));
+      const space = Math.max(56, Math.round(this.scale.height * 0.10));
 
       this.activeOptionButtons.forEach((btn, i) => {
         btn.setPosition(this.centerX, startY + i * space);
         (btn as any).width = width;
         (btn as any).height = height;
 
-        const g   = btn.getAt(0) as Phaser.GameObjects.Graphics;
+        const g = btn.getAt(0) as Phaser.GameObjects.Graphics;
         const txt = btn.getAt(1) as Phaser.GameObjects.Text;
-        const zone= btn.getAt(2) as Phaser.GameObjects.Zone;
+        const zone = btn.getAt(2) as Phaser.GameObjects.Zone;
 
         this.updateButtonGraphics(g, width, height, 0xffffff, 0x000000, 3, radius);
         txt.setStyle({

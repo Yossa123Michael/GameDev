@@ -15,14 +15,17 @@ export class OptionScene extends BaseScene {
   private qualityLow?: Phaser.GameObjects.Container;
 
   private langText?: Phaser.GameObjects.Text;
+
   private vibrateToggle?: Phaser.GameObjects.Container;
 
   private resetBtn?: Phaser.GameObjects.Container;
   private confirmBox?: Phaser.GameObjects.Container;
+
   private versionText?: Phaser.GameObjects.Text;
 
   private opts: Settings = SettingsManager.get();
-  private settingsUnsub?: () => void;
+  // FIX: hindari clash dengan BaseScene.settingsUnsub
+  private optsUnsub?: () => void;
 
   constructor() {
     super('OptionScene');
@@ -32,14 +35,15 @@ export class OptionScene extends BaseScene {
     super.create();
     super.createCommonButtons('MainMenuScene');
 
-    this.settingsUnsub = SettingsManager.subscribe((s) => {
+    // subscribe
+    this.optsUnsub = SettingsManager.subscribe((s) => {
       this.opts = s;
-      try { this.updateToggleLabel(this.musicToggle!, `Music: ${s.musicOn ? 'On' : 'Off'}`); } catch {}
-      try { this.updateToggleLabel(this.sfxToggle!,   `SFX: ${s.sfxOn   ? 'On' : 'Off'}`); } catch {}
-      this.applyOptions(this.opts);
+      try { this.updateToggleLabel(this.musicToggle!, `Music: ${this.opts.musicOn ? 'On' : 'Off'}`); } catch {}
+      try { this.updateToggleLabel(this.sfxToggle!,   `SFX: ${this.opts.sfxOn   ? 'On' : 'Off'}`); } catch {}
+      try { this.applyOptions(this.opts); } catch {}
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      try { this.settingsUnsub?.(); } catch {}
+      try { this.optsUnsub?.(); } catch {}
     });
 
     this.applyOptions(this.opts);
@@ -67,12 +71,11 @@ export class OptionScene extends BaseScene {
       SettingsManager.save({ sfxOn: v });
       this.opts = SettingsManager.get();
       this.updateToggleLabel(this.sfxToggle!, `SFX: ${v ? 'On' : 'Off'}`);
-      // Tidak panggil applyOptions karena fungsi itu hanya urus music & graphics
     });
     if (this.sfxToggle) this.sceneContentGroup.add(this.sfxToggle);
     y += 70;
 
-    // Music volume slider
+    // Music volume
     this.musicSlider = this.createSlider(y, 'Music Volume', this.opts.musicVol, (val) => {
       SettingsManager.save({ musicVol: clamp01(val) });
       this.opts = SettingsManager.get();
@@ -81,7 +84,7 @@ export class OptionScene extends BaseScene {
     if (this.musicSlider) this.sceneContentGroup.add(this.musicSlider);
     y += 70;
 
-    // SFX volume slider
+    // SFX volume
     this.sfxSlider = this.createSlider(y, 'SFX Volume', this.opts.sfxVol, (val) => {
       SettingsManager.save({ sfxVol: clamp01(val) });
       this.opts = SettingsManager.get();
@@ -113,7 +116,7 @@ export class OptionScene extends BaseScene {
     this.refreshQualityButtons();
     y += 60;
 
-    // Language (EN) – hardcoded tampilan
+    // Language (EN)
     this.langText = this.add.text(this.centerX, y, 'Language: EN', {
       fontFamily: 'Nunito', fontSize: '20px', color: '#555'
     }).setOrigin(0.5);
@@ -130,8 +133,8 @@ export class OptionScene extends BaseScene {
     if (this.vibrateToggle) this.sceneContentGroup.add(this.vibrateToggle);
     y += 70;
 
-    // Version
-    this.versionText = this.add.text(this.centerCenterX ?? this.centerX, y, 'Version: Global', {
+    // Version (Global)
+    this.versionText = this.add.text(this.centerX, y, 'Version: Global', {
       fontFamily: 'Nunito', fontSize: '20px', color: '#000'
     }).setOrigin(0.5);
     this.sceneContentGroup.add(this.versionText);
@@ -141,7 +144,7 @@ export class OptionScene extends BaseScene {
     this.resetBtn = this.createButton(y, 'Reset Progress (Local)', () => this.openConfirm());
     if (this.resetBtn) this.sceneContentGroup.add(this.resetBtn);
 
-    // Pointer cursor
+    // Pointer cursor util atas
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
       let over = false;
@@ -153,7 +156,7 @@ export class OptionScene extends BaseScene {
   }
 
   public override draw() {
-    // Reposisi header & kontrol (bagian lama)
+    // Header & kontrol
     this.title?.setPosition(this.centerX, 90);
 
     const colX = this.centerX;
@@ -162,12 +165,13 @@ export class OptionScene extends BaseScene {
 
     this.musicToggle?.setPosition(colX, y); y += lineH + 10;
     this.sfxToggle?.setPosition(colX, y); y += lineH + 18;
-    this.musicSlider?.setPosition(colX, y); 
-    // Update layout slider music sesuai ukuran baru
-    this.updateSliderLayout(this.musicSlider, 'Music Volume', (this as any).opts?.musicVol ?? 1);
+
+    this.musicSlider?.setPosition(colX, y);
+    this.updateSliderLayout(this.musicSlider, 'Music Volume', (this.opts?.musicVol ?? 1));
     y += lineH + 18;
+
     this.sfxSlider?.setPosition(colX, y);
-    this.updateSliderLayout(this.sfxSlider, 'SFX Volume', (this as any).opts?.sfxVol ?? 1);
+    this.updateSliderLayout(this.sfxSlider, 'SFX Volume', (this.opts?.sfxVol ?? 1));
     y += lineH + 24;
 
     const qY = y;
@@ -181,6 +185,8 @@ export class OptionScene extends BaseScene {
     this.versionText?.setPosition(colX, y); y += lineH - 10;
     this.resetBtn?.setPosition(colX, y);
   }
+
+  // ===== Helpers UI & Apply =====
 
   private createToggle(y: number, label: string, init: boolean, onChange: (v: boolean) => void) {
     let state = init;
@@ -196,7 +202,7 @@ export class OptionScene extends BaseScene {
     if (t) t.setText(text);
   }
 
-    private createSlider(y: number, label: string, initVal: number, onChange: (val: number) => void) {
+  private createSlider(y: number, label: string, initVal: number, onChange: (val: number) => void) {
     const trackW = Math.min(420, Math.round(this.scale.width * 0.8));
     const c = this.add.container(this.centerX, y);
 
@@ -208,19 +214,17 @@ export class OptionScene extends BaseScene {
     const track = this.add.rectangle(0, 10, trackW, 6, 0xcccccc).setOrigin(0.5);
     c.add(track);
 
-    const knob = this.add.circle(-trackW / 2 + trackW * initVal, 10, 10, 0x111111)
-      .setInteractive({ useHandCursor: true });
+    const knob = this.add.circle(-trackW / 2 + trackW * initVal, 10, 10, 0x111111).setInteractive({ useHandCursor: true });
     c.add(knob);
 
     const updateFromPointer = (px: number) => {
       const left = c.x - trackW / 2;
       let v = (px - left) / trackW;
       v = Math.max(0, Math.min(1, v));
-      knob.x = -trackW / 2 + trackW * v;
+      (knob as any).x = -trackW / 2 + trackW * v;
       lbl.setText(`${label}: ${Math.round(v * 100)}%`);
       onChange(v);
-      // Dihilangkan: playSound saat drag agar tidak ada “setruman”
-      // this.playSound('sfx_click', { volume: 0.2 });
+      // tidak ada bunyi saat dragging (hindari “setruman”)
     };
 
     knob.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -298,7 +302,7 @@ export class OptionScene extends BaseScene {
   }
 
   private applyOptions(o: Settings) {
-    // Hanya mengatur music playback & graphics. Tidak mengubah runtime mute.
+    // Music on/off + volume
     try {
       if (!o.musicOn) {
         if (BaseScene.backgroundMusic?.isPlaying) BaseScene.backgroundMusic.pause();
@@ -310,10 +314,16 @@ export class OptionScene extends BaseScene {
       try { (BaseScene.backgroundMusic as any)?.setVolume?.(o.musicVol); } catch {}
     } catch {}
 
-    // Update ikon horn berdasarkan runtime dan setting
+    // update ikon horn
     try {
-      // Ikon sudah diatur oleh BaseScene saat runtime berubah; di sini kita bisa paksa sinkron jika perlu:
-      (this.scene.get(this.scene.key) as any)?.updateHornIcon?.();
+      const key = o.musicOn ? 'music_on' : 'music_off';
+      if (this.musicButton && 'setTexture' in this.musicButton) {
+        if (this.textures.exists(key)) {
+          try { (this.musicButton as Phaser.GameObjects.Image).setTexture(key); } catch {}
+        } else {
+          try { this.musicButton.setVisible(false).disableInteractive(); } catch {}
+        }
+      }
     } catch {}
 
     // Graphics
@@ -325,23 +335,25 @@ export class OptionScene extends BaseScene {
       }
     } catch {}
   }
+
+  // Perbarui ukuran track/knob saat resize
   private updateSliderLayout(cont: Phaser.GameObjects.Container | undefined, label: string, value01: number) {
     if (!cont) return;
-    // anak-anak: [0]=label text, [1]=track rectangle, [2]=knob circle
     const trackW = Math.min(420, Math.round(this.scale.width * 0.8));
     const lbl = cont.getAt(0) as Phaser.GameObjects.Text | undefined;
     const track = cont.getAt(1) as Phaser.GameObjects.Rectangle | undefined;
-    const knob = cont.getAt(2) as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse | Phaser.GameObjects.Circle | undefined;
+    // FIX tipe knob: circle() mengembalikan Arc, bukan Circle
+    const knob = cont.getAt(2) as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse | undefined;
 
     lbl?.setText(`${label}: ${Math.round(value01 * 100)}%`).setOrigin(0.5).setPosition(0, -24);
     if (track) {
-      track.setSize(trackW, 6).setPosition(0, 10);
-      // Phaser rectangle tidak auto redraw; recreate fill
-      track.width = trackW; (track as any).displayWidth = trackW;
+      track.setPosition(0, 10);
+      // update ukuran secara manual (Phaser rectangle tidak auto-resize fill)
+      (track as any).width = trackW; (track as any).displayWidth = trackW;
     }
-    if (knob && (knob as any)) {
-      const kx = -trackW / 2 + trackW * value01;
-      (knob as any).x = kx; (knob as any).y = 10;
+    if (knob) {
+      knob.x = -trackW / 2 + trackW * value01;
+      knob.y = 10;
     }
   }
 }
