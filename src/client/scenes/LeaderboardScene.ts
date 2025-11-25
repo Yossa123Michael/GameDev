@@ -10,126 +10,121 @@ function getDeviceBest(): number | null {
   try { const raw = localStorage.getItem('rk:best'); return raw ? Number(raw) : null; } catch { return null; }
 }
 
+// Warna medal
+const GOLD_FILL   = 0xFFD700;
+const GOLD_STROKE = 0xB8860B;
+const SILVER_FILL   = 0xC0C0C0;
+const SILVER_STROKE = 0x808080;
+const BRONZE_FILL   = 0xCD7F32;
+const BRONZE_STROKE = 0x8B4513;
+
 export class LeaderboardScene extends BaseScene {
+  // Data
   private entries: Entry[] = [];
   private myBest: UserBest | null = null;
-  private currentUserId: string | null = null;
+  private _currentUserId: string | null = null;
   private lastSub: LastSub | null = null;
   private deviceBest: number | null = null;
-
   private inTop100Index: number | null = null;
 
+  // UI references
+  private titleText?: Phaser.GameObjects.Text;
+  private headerRow?: Phaser.GameObjects.Container;
+  private userFixedRow?: Phaser.GameObjects.Container;
   private listContainer?: Phaser.GameObjects.Container;
   private maskGraphics?: Phaser.GameObjects.Graphics;
-  private scrollArea?: Phaser.GameObjects.Rectangle;
-  private scrollY = 0;
-  private scrollDrag = { active: false, startY: 0, baseScroll: 0 };
-  private contentHeight = 0;
-
+  private scrollSurface?: Phaser.GameObjects.Rectangle;
   private statusText?: Phaser.GameObjects.Text;
 
-  private wheelBound = false;
-  private wheelHandler = (_pointer: any, _gos: any, _dx: number, dy: number) => {
-    if (!this.scene.isActive()) return;
-    this.applyScroll(dy * 0.6);
-  };
-
+  // State
   private alive = true;
+  private scrollY = 0;
+  private contentHeight = 0;
+
+  // Drag
+  private dragActive = false;
+  private dragStartY = 0;
+  private dragBaseScroll = 0;
+
+  // Debounce rebuild
+  private pendingRebuild = false;
+
+  // Layout constants (bisa Anda ubah)
+  private readonly TITLE_Y = 80;
+  private readonly ROW_HEIGHT = 60;         // Fix untuk stabilitas
+  private readonly ROW_GAP = 20;            // Gap antar baris
+  private readonly GAP_TITLE_HEADER = 54;   // Jarak judul ke header
+  private readonly GAP_HEADER_LIST = 30;    // Jarak header ke area list
+  private readonly GAP_LIST_START = 30;     // Offset ekstra sebelum baris pertama supaya tidak memotong
+  private readonly USER_BOTTOM_MARGIN = 30; // Margin bawah untuk user box
+  private readonly STROKE_W = 3;
+
+  // Computed metrics
+  private buttonWidth = 0;
+  private buttonLeft = 0;
+  private headerCenterY = 0;
+  private scrollTopY = 0;
+  private scrollHeight = 0;
+  private userBottomCenterY = 0;
+  private radius = 20;
 
   constructor() { super('LeaderboardScene'); }
 
+  // ---------- Lifecycle ----------
   public override async create() {
     super.create();
     this.createCommonButtons('MainMenuScene');
 
-    this.alive = true;
     this.showStatus('Loading leaderboard...');
-    this.scrollY = 0;
-    this.inTop100Index = null;
+    await this.loadDataFast();
+    if (!this.scene.isActive()) return;
 
-    await this.loadDataFast(); 
-    if (!this.alive) return;
-
-    this.setupScrollArea();
-    this.safeDraw();
-
-    this.time.delayedCall(50, () => this.safeDraw());
-    this.time.delayedCall(150, () => this.safeDraw());
-
+    this.computeMetrics();
+    this.fullRebuild(); // initial build
+    this.time.delayedCall(50, () => { if (this.alive) this.fullRebuild(); });
     this.computeRankInBackground();
 
-    this.events.once('shutdown', () => { this.alive = false; this.cleanupListeners(); });
-    this.events.once('destroy',  () => { this.alive = false; this.cleanupListeners(); });
+    this.events.once('shutdown', () => { this.alive = false; this.cleanup(); });
+    this.events.once('destroy',  () => { this.alive = false; this.cleanup(); });
   }
 
-    public override draw() {
-    this.safeDraw();
-  }
-
-  private safeDraw() {
+  public override draw() {
+    // Dipanggil saat resize → debounce
     if (!this.alive) return;
-
-    if (!this.listContainer || !this.maskGraphics || !this.scrollArea) {
-      this.setupScrollArea();
-      this.time.delayedCall(0, () => { if (this.alive) this.safeDraw(); });
-      return;
-    }
-
-    try {
-      const prevTitle = this.children.getByName?.('leaderboard_title');
-      if (prevTitle) { try { prevTitle.destroy(); } catch {} }
-
-      const copy = this.listContainer.list.slice();
-      copy.forEach(c => { try { c.destroy(true); } catch {} });
-
-      const ex = this.children.getByName?.('fixed_my_row');
-      if (ex) { try { ex.destroy(); } catch {} }
-
-      const title = this.add.text(this.centerX, 80, 'Leaderboard', {
-        fontFamily: 'Nunito', fontSize: '36px', color: '#000'
-      }).setOrigin(0.5).setDepth(5);
-      title.setName('leaderboard_title');
-      try { this.sceneContentGroup?.add(title); } catch { this.add.existing(title); }
-
-      // Update metrics berdasar kanvas saat ini (Scale.FIT)
+    if (this.pendingRebuild) return;
+    this.pendingRebuild = true;
+    const ratio = this.getScrollRatio();
+    this.time.delayedCall(0, () => {
+      if (!this.alive) return;
+      this.pendingRebuild = false;
       this.computeMetrics();
-
-      // Build list + layout + fixed row
-      this.buildList();
-      this.layoutList();
-      this.renderFixedMyRow();
-
-      this.showStatus(null);
-    } catch (e) {
-      console.warn('safeDraw failed, scheduling retry:', e);
-      this.showStatus('Rendering...');
-      this.time.delayedCall(80, () => { if (this.alive) this.safeDraw(); });
-    }
+      this.fullRebuild(ratio);
+    });
   }
 
-  private showStatus(message: string | null) {
-    if (!this.alive) return;
-    if (!this.statusText && message) {
-      this.statusText = this.add.text(this.centerX, this.scale.height * 0.5, message, {
-        fontFamily: 'Nunito', fontSize: '20px', color: '#666'
-      }).setOrigin(0.5).setDepth(1002);
-      try { this.sceneContentGroup?.add(this.statusText); } catch {}
-    } else if (this.statusText) {
-      if (message) this.statusText.setText(message).setVisible(true);
-      else this.statusText.setVisible(false);
-    }
+  // ---------- Metrics ----------
+  private computeMetrics() {
+    this.buttonWidth = Math.round(this.scale.width * 0.86);
+    this.buttonLeft = Math.round((this.scale.width - this.buttonWidth) / 2);
+    this.radius = Math.min(24, Math.floor(this.ROW_HEIGHT * 0.35));
+    this.headerCenterY = this.TITLE_Y + this.GAP_TITLE_HEADER + this.ROW_HEIGHT / 2;
+    this.scrollTopY = this.headerCenterY + this.ROW_HEIGHT / 2 + this.GAP_HEADER_LIST;
+    this.userBottomCenterY = this.scale.height - this.USER_BOTTOM_MARGIN - this.ROW_HEIGHT / 2;
+
+    const reservedBottom = (this.scale.height - this.userBottomCenterY) + this.ROW_HEIGHT / 2 + 16;
+    const available = this.scale.height - this.scrollTopY - reservedBottom;
+    this.scrollHeight = Math.max(this.ROW_HEIGHT * 4, available);
   }
 
-  // Muat data cepat: top100 + auth secara paralel. Tanpa hitung rank dulu.
+  // ---------- Data load ----------
   private async loadDataFast() {
     this.entries = [];
     this.myBest = null;
-    this.currentUserId = null;
+    this._currentUserId = null;
     this.inTop100Index = null;
     this.lastSub = getLastSubmission();
     this.deviceBest = getDeviceBest();
 
-    // Jalankan paralel: top100 dan auth
     const [topRes, authRes] = await Promise.all([
       supabase
         .from('scores')
@@ -142,25 +137,21 @@ export class LeaderboardScene extends BaseScene {
 
     if (topRes.error) throw topRes.error;
 
-    // Dedup per user_id agar 1 user hanya 1 baris
     const seen = new Set<string>();
     const unique: Entry[] = [];
     for (const e of (topRes.data || []) as Entry[]) {
       if (e.user_id) {
         if (seen.has(e.user_id)) continue;
         seen.add(e.user_id);
-        unique.push(e);
-      } else {
-        unique.push(e);
       }
+      unique.push(e);
       if (unique.length >= 100) break;
     }
     this.entries = unique;
 
     const uid = (authRes.data as any)?.user?.id ?? null;
-    this.currentUserId = uid;
+    this._currentUserId = uid;
 
-    // Cari index by user_id (akurat)
     if (uid) {
       const idx = this.entries.findIndex(en => en.user_id === uid);
       if (idx >= 0) {
@@ -170,7 +161,6 @@ export class LeaderboardScene extends BaseScene {
       }
     }
 
-    // Jika belum ketemu di Top 100, fallback highlight ke skor deviceBest
     if (this.inTop100Index == null && this.deviceBest != null) {
       const idx2 = this.entries.findIndex(en => en.score === this.deviceBest!);
       if (idx2 >= 0) {
@@ -180,279 +170,286 @@ export class LeaderboardScene extends BaseScene {
       }
     }
 
-    // Jika tetap tidak ada di Top 100 tapi ada deviceBest → fixed row minimal
     if (!this.myBest && this.deviceBest != null) {
       this.myBest = { name: this.lastSub?.name || 'You', score: this.deviceBest, created_at: '' };
     }
 
     this.showStatus(null);
-
-    console.log('Leaderboard loaded:', {
-      count: this.entries.length,
-      myBest: this.myBest,
-      inTop100Index: this.inTop100Index,
-      uid: this.currentUserId,
-      deviceBest: this.deviceBest,
-      lastSub: this.lastSub
-    });
   }
 
-  // Hitung rank di latar belakang (tidak memblokir render cepat)
   private async computeRankInBackground() {
     if (!this.alive) return;
     if (this.inTop100Index != null) return;
     if (!this.myBest?.score) return;
-
     try {
       const q = await supabase.from('scores').select('id', { count: 'exact', head: true }).gt('score', this.myBest.score);
       const higher = q.count || 0;
       this.myBest.rank = higher + 1;
-      if (this.alive) this.renderFixedMyRow();
-    } catch {
-      // abaikan
-    }
+      this.rebuildUserRow();
+    } catch {}
   }
 
-  private computeMetrics() {
-    // Area list
-    const top = 120;
-    const left = Math.round(this.scale.width * 0.06);
-    const width = Math.round(this.scale.width * 0.88);
-    const height = Math.max(160, Math.round(this.scale.height * 0.74));
-    this.area = { left, top, width, height };
-
-    // Tinggi baris dan gap responsif (berbasis tinggi virtual)
-    this.rowH = Math.max(48, Math.round(this.scale.height * 0.065));
-    this.rowGap = Math.max(8, Math.round(this.scale.height * 0.02));
+  // ---------- Scroll ratio ----------
+  private getScrollRatio(): number {
+    if (this.contentHeight <= this.scrollHeight) return 0;
+    return this.scrollY / Math.max(1, this.contentHeight - this.scrollHeight);
   }
 
-  private setupScrollArea() {
+  private restoreScrollFromRatio(r: number) {
+    this.scrollY = r * Math.max(0, this.contentHeight - this.scrollHeight);
+    this.clampScroll();
+  }
+
+  // ---------- Full rebuild ----------
+  private fullRebuild(preserveRatio?: number) {
+    // Destroy old
+    try { this.titleText?.destroy(); } catch {}
+    try { this.headerRow?.destroy(); } catch {}
+    try { this.userFixedRow?.destroy(); } catch {}
     try { this.listContainer?.destroy(true); } catch {}
     try { this.maskGraphics?.destroy(); } catch {}
-    try { this.scrollArea?.destroy(); } catch {}
+    try { this.scrollSurface?.destroy(); } catch {}
 
-    this.computeMetrics();
+    // Build fixed
+    this.buildTitle();
+    this.buildHeader();
+    this.rebuildUserRow();
+    this.buildScrollArea();
+    this.renderList();
 
-    this.listContainer = this.add.container(0, this.area.top).setDepth(1000);
+    if (preserveRatio !== undefined) this.restoreScrollFromRatio(preserveRatio);
+    this.layoutAll();
+  }
 
-    this.maskGraphics = this.add.graphics().setDepth(999);
-    this.maskGraphics.fillStyle(0xffffff, 1);
-    this.maskGraphics.fillRect(this.area.left, this.area.top, this.area.width, this.area.height);
+  private buildTitle() {
+    this.titleText = this.add.text(this.centerX, this.TITLE_Y, 'Leaderboard', {
+      fontFamily: 'Nunito',
+      fontSize: '36px',
+      color: '#000'
+    }).setOrigin(0.5).setDepth(50);
+  }
+
+  private buildHeader() {
+    this.headerRow = this.buildBox(this.headerCenterY, { rank: 'Rank', name: 'Nama', score: 'High Score' }, true, false);
+    this.headerRow.setDepth(45);
+  }
+
+  private rebuildUserRow() {
+    const y = this.userBottomCenterY;
+    let rankText = '-';
+    let nameText = 'You';
+    let scoreText = '-';
+    if (this.myBest) {
+      rankText = this.myBest.rank && this.myBest.rank <= 10000 ? `${this.myBest.rank}.` : '-';
+      nameText = this.myBest.name || 'You';
+      scoreText = `${this.myBest.score}`;
+    }
+    this.userFixedRow = this.buildBox(y, { rank: rankText, name: nameText, score: scoreText }, false, true);
+    this.userFixedRow.setDepth(45);
+  }
+
+  private buildScrollArea() {
+    this.listContainer = this.add.container(0, this.scrollTopY).setDepth(30);
+
+    this.maskGraphics = this.add.graphics().setDepth(29);
+    this.drawMask();
     this.maskGraphics.setVisible(false);
     const mask = this.maskGraphics.createGeometryMask();
     this.listContainer.setMask(mask);
 
-    this.scrollArea = this.add.rectangle(
-      this.area.left + this.area.width / 2,
-      this.area.top + this.area.height / 2,
-      this.area.width,
-      this.area.height,
+    this.scrollSurface = this.add.rectangle(
+      this.buttonLeft + this.buttonWidth / 2,
+      this.scrollTopY + this.scrollHeight / 2,
+      this.buttonWidth,
+      this.scrollHeight,
       0x000000,
       0
-    ).setDepth(998);
-    this.scrollArea.setInteractive({ useHandCursor: true });
+    ).setDepth(28);
+    this.scrollSurface.setInteractive({ useHandCursor: true });
 
-    if (!this.wheelBound) { this.input.on('wheel', this.wheelHandler); this.wheelBound = true; }
-
-    this.input.off(Phaser.Input.Events.POINTER_MOVE);
-    this.input.off(Phaser.Input.Events.POINTER_UP);
-    this.input.off(Phaser.Input.Events.GAME_OUT);
-
-    this.scrollArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      this.scrollDrag.active = true;
-      this.scrollDrag.startY = pointer.y;
-      this.scrollDrag.baseScroll = this.scrollY;
+    // Drag events
+    this.scrollSurface.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.dragActive = true;
+      this.dragStartY = p.y;
+      this.dragBaseScroll = this.scrollY;
     });
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
-      if (!this.scrollDrag.active || !this.alive) return;
-      const delta = pointer.y - this.scrollDrag.startY;
-      this.scrollY = this.scrollDrag.baseScroll - delta;
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (p: Phaser.Input.Pointer) => {
+      if (!this.dragActive || !this.alive) return;
+      const delta = p.y - this.dragStartY;
+      this.scrollY = this.dragBaseScroll - delta;
       this.clampScroll();
-      this.layoutList();
+      this.layoutScroll();
     });
-    this.input.on(Phaser.Input.Events.POINTER_UP, () => { this.scrollDrag.active = false; });
-    this.input.on(Phaser.Input.Events.GAME_OUT, () => { this.scrollDrag.active = false; });
+    this.input.on(Phaser.Input.Events.POINTER_UP,   () => { this.dragActive = false; });
+    this.input.on(Phaser.Input.Events.GAME_OUT,     () => { this.dragActive = false; });
+
+    // Wheel
+    this.input.on('wheel',
+      (pointer: Phaser.Input.Pointer, _gos: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+        this.applyScroll(dy * 0.6);
+      }
+    );
   }
 
-  private applyScroll(delta: number) {
-    this.scrollY += delta;
-    this.clampScroll();
-    this.layoutList();
+  private drawMask() {
+    if (!this.maskGraphics) return;
+    this.maskGraphics.clear();
+    this.maskGraphics.fillStyle(0xffffff, 1);
+    this.maskGraphics.fillRect(
+      this.buttonLeft - this.STROKE_W,
+      this.scrollTopY - this.STROKE_W,
+      this.buttonWidth + this.STROKE_W * 2,
+      this.scrollHeight + this.STROKE_W * 2
+    );
   }
 
-  private clampScroll() {
-    const maxScroll = Math.max(0, this.contentHeight - this.area.height);
-    if (this.scrollY < 0) this.scrollY = 0;
-    if (this.scrollY > maxScroll) this.scrollY = maxScroll;
-  }
-
-
-  private buildList() {
+  // ---------- Render list ----------
+  private renderList() {
     if (!this.listContainer) return;
+    const prev = this.listContainer.list.slice();
+    prev.forEach(o => { try { o.destroy(true); } catch {} });
 
-    const left = this.area.left;
-    const width = this.area.width;
+    let yLocal = this.ROW_HEIGHT / 2 + this.GAP_LIST_START;
 
-    // Header
-    let y = 0;
-    const header = this.createRow(left, y, width, { rank: 'Rank', name: 'Nama', score: 'High Score' }, true, false);
-    this.listContainer.add(header);
-
-    if (!this.entries || this.entries.length === 0) {
-      y = this.rowH + this.rowGap;
-      const noData = this.createRow(left, y, width, { rank: '-', name: 'No data', score: '-' }, false, false);
+    if (!this.entries.length) {
+      const noData = this.buildBoxLocal(yLocal, { rank: '-', name: 'No data', score: '-' }, false, false);
       this.listContainer.add(noData);
-      this.contentHeight = this.rowH + (this.rowH + this.rowGap);
+      this.contentHeight = this.ROW_HEIGHT + this.GAP_LIST_START;
       this.clampScroll();
       return;
     }
 
-    y = this.rowH + this.rowGap;
-
     this.entries.forEach((en, i) => {
-      // Penting: jangan highlight baris di list agar tidak dobel dengan fixed row
-      const row = this.createRow(left, y, width, {
+      const row = this.buildBoxLocal(yLocal, {
         rank: `${i + 1}.`,
         name: en.name || 'Player',
         score: `${en.score}`
       }, false, false);
       this.listContainer!.add(row);
-      y += this.rowH + this.rowGap;
+      yLocal += this.ROW_HEIGHT + this.ROW_GAP;
     });
 
-    this.contentHeight = this.rowH + this.entries.length * (this.rowH + this.rowGap);
+    this.contentHeight = yLocal - this.ROW_GAP + this.ROW_HEIGHT / 2;
     this.clampScroll();
   }
 
-  // Cek apakah index baris (0-based) terlihat di viewport scroll
-  private isIndexInView(idx: number) {
-    // posisi Y relatif list (tanpa scroll): y = rowH + rowGap + idx*(rowH+rowGap)
-    const yRel = this.rowH + this.rowGap + idx * (this.rowH + this.rowGap);
-    const yTopOnScreen = (this.area.top - this.scrollY) + yRel;
-    const yBottomOnScreen = yTopOnScreen + this.rowH;
-    const viewTop = this.area.top;
-    const viewBottom = this.area.top + this.area.height;
-    return yBottomOnScreen > viewTop && yTopOnScreen < viewBottom;
+  // ---------- Box builders ----------
+  private buildBox(yCenterWorld: number, data: { rank: string; name: string; score: string }, isHeader: boolean, isUser: boolean) {
+    const c = this.add.container(this.centerX, yCenterWorld);
+    return this.initBoxGraphics(c, data, isHeader, isUser);
   }
 
-  private renderFixedMyRow() {
-    const ex = this.children.getByName?.('fixed_my_row');
-    if (ex) { try { ex.destroy(); } catch {} }
+  private buildBoxLocal(yCenterLocal: number, data: { rank: string; name: string; score: string }, isHeader: boolean, isUser: boolean) {
+    const c = this.add.container(this.centerX, yCenterLocal);
+    return this.initBoxGraphics(c, data, isHeader, isUser);
+  }
 
-    // Jika baris user ada di Top 100 dan sedang terlihat, jangan render fixed row (hindari dobel)
-    if (this.inTop100Index != null && this.isIndexInView(this.inTop100Index)) return;
+  private initBoxGraphics(
+    c: Phaser.GameObjects.Container,
+    data: { rank: string; name: string; score: string },
+    isHeader: boolean,
+    isUser: boolean
+  ) {
+    const width = this.buttonWidth;
+    const height = this.ROW_HEIGHT;
+    const radius = this.radius;
+    const fontSize = Math.max(16, Math.round(height * 0.40));
+    const padX = Math.round(width * 0.05);
 
-    const left = this.area.left;
-    const width = this.area.width;
+    (c as any).width = width;
+    (c as any).height = height;
 
-    // tempel di bawah viewport, beri margin kecil
-    const margin = Math.round(this.scale.height * 0.02);
-    const yFixed = this.scale.height - margin - this.rowH;
-
-    let rankText = '-';
-    let nameText = 'You';
-    let scoreText = '-';
-
-    if (this.inTop100Index !== null && this.inTop100Index >= 0 && this.inTop100Index < this.entries.length) {
-      const en = this.entries[this.inTop100Index]!;
-      rankText = `${this.inTop100Index + 1}.`;
-      nameText = en.name || 'You'; // Jika Anda ingin pakai “Reddit display name” dari auth, kita bisa inject di sini.
-      scoreText = `${en.score}`;
-    } else if (this.myBest) {
-      rankText = (this.myBest.rank && this.myBest.rank <= 1000) ? `${this.myBest.rank}.` : '-';
-      nameText = this.myBest.name || 'You';
-      scoreText = `${this.myBest.score}`;
+    let fill = 0xffffff;
+    let stroke = 0x000000;
+    if (isHeader) {
+      fill = 0xf2f2f2; stroke = 0x999999;
+    } else if (isUser) {
+      fill = 0xd4edda; stroke = 0x28a745;
+    } else {
+      const rankNum = parseInt(data.rank);
+      if (rankNum === 1) { fill = GOLD_FILL; stroke = GOLD_STROKE; }
+      else if (rankNum === 2) { fill = SILVER_FILL; stroke = SILVER_STROKE; }
+      else if (rankNum === 3) { fill = BRONZE_FILL; stroke = BRONZE_STROKE; }
     }
 
-    const myRow = this.createRow(left, yFixed, width, {
-      rank: rankText, name: nameText, score: scoreText
-    }, false, true);
-    myRow.setName('fixed_my_row');
-    myRow.setDepth(1001); // pastikan di atas list yang di-depth 1000
-    try { this.sceneContentGroup?.add(myRow); } catch { this.add.existing(myRow); }
-  }
-
-  private createRow(xLeft: number, yTop: number, width: number, data: { rank: string; name: string; score: string }, isHeader = false, isMe = false) {
-    const height = this.rowH;
-    // Match menu button radius and border thickness
-    const radius = Math.min(24, Math.round(height * 0.35));
-    const strokeWidth = 3;
-
-    const c = this.add.container(xLeft, yTop);
-    c.setSize(width, height);
-
     const g = this.add.graphics();
-    const fill = isHeader ? 0xf2f2f2 : (isMe ? 0xd4edda : 0xffffff);
-    const stroke = isHeader ? 0x999999 : (isMe ? 0x28a745 : 0x000000);
-    g.lineStyle(strokeWidth, stroke, 1).fillStyle(fill, 1);
-    g.fillRoundedRect(0, 0, width, height, radius);
-    g.strokeRoundedRect(0, 0, width, height, radius);
+    g.lineStyle(this.STROKE_W, stroke, 1).fillStyle(fill, 1);
+    g.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
+    g.strokeRoundedRect(-width / 2, -height / 2, width, height, radius);
     c.add(g);
 
-    const padX = Math.round(width * 0.04);
-
-    const rankT = this.add.text(padX, height / 2, data.rank, {
-      fontFamily: 'Nunito', fontSize: `${Math.max(14, Math.round(height * 0.42))}px`, color: '#000'
+    const rankT = this.add.text(-width / 2 + padX, 0, data.rank, {
+      fontFamily: 'Nunito', fontSize: `${fontSize}px`, color: '#000'
     }).setOrigin(0, 0.5);
     c.add(rankT);
 
-    const nameT = this.add.text(width / 2, height / 2, data.name, {
-      fontFamily: 'Nunito', fontSize: `${Math.max(14, Math.round(height * 0.42))}px`, color: '#000'
+    const nameT = this.add.text(0, 0, data.name, {
+      fontFamily: 'Nunito', fontSize: `${fontSize}px`, color: '#000'
     }).setOrigin(0.5);
     c.add(nameT);
 
-    const scoreT = this.add.text(width - padX, height / 2, data.score, {
-      fontFamily: 'Nunito', fontSize: `${Math.max(14, Math.round(height * 0.42))}px`, color: '#000'
+    const scoreT = this.add.text(width / 2 - padX, 0, data.score, {
+      fontFamily: 'Nunito', fontSize: `${fontSize}px`, color: '#000'
     }).setOrigin(1, 0.5);
     c.add(scoreT);
 
     return c;
   }
 
-  private layoutList() {
-    if (!this.listContainer) return;
+  // ---------- Layout ----------
+  private layoutAll() {
+    this.titleText?.setPosition(this.centerX, this.TITLE_Y);
+    this.headerRow?.setPosition(this.centerX, this.headerCenterY);
+    this.userFixedRow?.setPosition(this.centerX, this.userBottomCenterY);
 
-    // update area (jaga-jaga jika dipanggil setelah resize)
-    this.computeMetrics();
+    this.drawMask();
+    this.scrollSurface?.setPosition(
+      this.buttonLeft + this.buttonWidth / 2,
+      this.scrollTopY + this.scrollHeight / 2
+    ).setSize(this.buttonWidth, this.scrollHeight);
 
-    this.listContainer.setPosition(0, this.area.top - this.scrollY);
+    this.layoutScroll();
+  }
 
-    if (this.maskGraphics) {
-      try {
-        this.maskGraphics.clear();
-        this.maskGraphics.fillStyle(0xffffff, 1);
-        this.maskGraphics.fillRect(this.area.left, this.area.top, this.area.width, this.area.height);
-      } catch {}
-    }
-
-    const sa = this.scrollArea as Phaser.GameObjects.Rectangle | undefined;
-    if (sa && (sa as any).scene) {
-      try {
-        sa.setPosition(this.area.left + this.area.width / 2, this.area.top + this.area.height / 2);
-        sa.setSize(this.area.width, this.area.height);
-      } catch {}
-    }
-
-    // Setelah layout, decide apakah fixed row perlu ditampilkan/dihilangkan
-    const fixed = this.children.getByName?.('fixed_my_row') as Phaser.GameObjects.Container | undefined;
-    const needFixed = !(this.inTop100Index != null && this.isIndexInView(this.inTop100Index));
-    if (fixed) {
-      if (needFixed) {
-        // reposisi fixed row di bawah
-        const margin = Math.round(this.scale.height * 0.02);
-        fixed.setPosition(this.area.left, this.scale.height - margin - this.rowH);
-        fixed.setDepth(1001);
-        fixed.setVisible(true);
-      } else {
-        fixed.setVisible(false);
-      }
-    } else if (needFixed) {
-      this.renderFixedMyRow();
+  private layoutScroll() {
+    if (this.listContainer) {
+      this.listContainer.setPosition(0, this.scrollTopY - this.scrollY);
     }
   }
 
-  private cleanupListeners() {
-    try { if (this.wheelBound) { this.input.off('wheel', this.wheelHandler); this.wheelBound = false; } } catch {}
+  // ---------- Scroll helpers ----------
+  private applyScroll(dy: number) {
+    this.scrollY += dy;
+    this.clampScroll();
+    this.layoutScroll();
+  }
+
+  private clampScroll() {
+    const maxScroll = Math.max(0, this.contentHeight - this.scrollHeight);
+    if (this.scrollY < 0) this.scrollY = 0;
+    if (this.scrollY > maxScroll) this.scrollY = maxScroll;
+  }
+
+  // ---------- Status ----------
+  private showStatus(message: string | null) {
+    if (!message) {
+      this.statusText?.setVisible(false);
+      return;
+    }
+    if (!this.statusText) {
+      this.statusText = this.add.text(this.centerX, this.scale.height * 0.5, message, {
+        fontFamily: 'Nunito',
+        fontSize: '20px',
+        color: '#666'
+      }).setOrigin(0.5).setDepth(1002);
+    } else {
+      this.statusText.setText(message).setVisible(true);
+    }
+  }
+
+  // ---------- Cleanup ----------
+  private cleanup() {
+    try { this.input.off('wheel'); } catch {}
     try { this.input.off(Phaser.Input.Events.POINTER_MOVE); } catch {}
     try { this.input.off(Phaser.Input.Events.POINTER_UP); } catch {}
     try { this.input.off(Phaser.Input.Events.GAME_OUT); } catch {}

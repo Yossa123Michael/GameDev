@@ -148,8 +148,6 @@ export class OptionScene extends BaseScene {
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
       let over = false;
-      if (this.musicButton && this.isPointerOver(pointer, this.musicButton)) over = true;
-      if (this.backButton && this.isPointerOver(pointer, this.backButton)) over = true;
       this.input.setDefaultCursor(over ? 'pointer' : 'default');
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.input.setDefaultCursor('default'));
@@ -312,18 +310,6 @@ export class OptionScene extends BaseScene {
         }
       }
       try { (BaseScene.backgroundMusic as any)?.setVolume?.(o.musicVol); } catch {}
-    } catch {}
-
-    // update ikon horn
-    try {
-      const key = o.musicOn ? 'music_on' : 'music_off';
-      if (this.musicButton && 'setTexture' in this.musicButton) {
-        if (this.textures.exists(key)) {
-          try { (this.musicButton as Phaser.GameObjects.Image).setTexture(key); } catch {}
-        } else {
-          try { this.musicButton.setVisible(false).disableInteractive(); } catch {}
-        }
-      }
     } catch {}
 
     // Graphics
