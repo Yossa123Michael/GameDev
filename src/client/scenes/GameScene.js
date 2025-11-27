@@ -213,6 +213,7 @@ export class Game extends BaseScene {
             if (this.isLocked)
                 return;
             this.updateButtonGraphics(g, width, height, 0xf5f5f5, 0x000000, 3, radius);
+            // Suara klik
             this.playSound('sfx_click');
             onClick();
         });
@@ -242,6 +243,13 @@ export class Game extends BaseScene {
             return;
         const correctIdx = this.getAnswerIndex(q);
         const correct = optionIndex === correctIdx;
+        // Suara benar/salah
+        if (correct) {
+            this.playSound('sfx_correct', { volume: 1 });
+        }
+        else {
+            this.playSound('sfx_incorrect', { volume: 1 });
+        }
         if (this.mode === 'belajar') {
             const elapsedSec = Math.max(0, Math.min(10, Math.floor((this.time.now - this.questionStartMs) / 1000)));
             const base = this.cfg.scoreBase;

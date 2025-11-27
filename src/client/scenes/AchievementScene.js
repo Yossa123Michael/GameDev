@@ -1,59 +1,48 @@
 import { BaseScene } from './BaseScene';
-// Contoh data (ganti sesuai kebutuhan)
+// Contoh data (ubah sesuai kebutuhan Anda)
 const achievementCategories = [
-    {
-        name: 'Memulai',
-        items: [
+    { name: 'Memulai', items: [
             { id: 'start_1', title: 'Main 1x', unlocked: true },
             { id: 'start_5', title: 'Main 5x', unlocked: false },
             { id: 'start_10', title: 'Main 10x', unlocked: false },
             { id: 'start_25', title: 'Main 25x', unlocked: false },
             { id: 'start_50', title: 'Main 50x', unlocked: false },
-        ],
-    },
-    {
-        name: 'Skor',
-        items: [
+        ] },
+    { name: 'Skor', items: [
             { id: 'score_50', title: 'Skor 50', unlocked: true },
             { id: 'score_100', title: 'Skor 100', unlocked: true },
             { id: 'score_200', title: 'Skor 200', unlocked: false },
             { id: 'score_300', title: 'Skor 300', unlocked: false },
             { id: 'score_500', title: 'Skor 500', unlocked: false },
-        ],
-    },
-    {
-        name: 'Combo',
-        items: [
+        ] },
+    { name: 'Combo', items: [
             { id: 'combo_3', title: '3 Benar Beruntun', unlocked: true },
             { id: 'combo_5', title: '5 Benar Beruntun', unlocked: false },
             { id: 'combo_7', title: '7 Benar Beruntun', unlocked: false },
             { id: 'combo_10', title: '10 Benar Beruntun', unlocked: false },
-        ],
-    },
-    {
-        name: 'Koleksi',
-        items: [
+        ] },
+    { name: 'Koleksi', items: [
             { id: 'collect_1', title: 'Kumpul 1 Medal', unlocked: true },
             { id: 'collect_3', title: 'Kumpul 3 Medal', unlocked: false },
             { id: 'collect_5', title: 'Kumpul 5 Medal', unlocked: false },
             { id: 'collect_8', title: 'Kumpul 8 Medal', unlocked: false },
-        ],
-    }
+        ] },
 ];
 export class AchievementScene extends BaseScene {
     constructor() {
         super('AchievementScene');
+        this.alive = true;
         this.scrollY = 0;
         this.contentHeight = 0;
         this.dragActive = false;
         this.dragStartY = 0;
         this.dragBaseScroll = 0;
-        // Area metrics
+        // Area (viewport) untuk scroll
         this.areaLeft = 0;
         this.areaTop = 0;
         this.areaWidth = 0;
         this.areaHeight = 0;
-        // Layout constants
+        // Konstanta layout
         this.TITLE_Y = 90;
         this.GAP_TITLE_TO_CONTENT = 40;
         this.CAT_TITLE_FONT = 22;
@@ -63,40 +52,42 @@ export class AchievementScene extends BaseScene {
         this.ICON_MIN = 72;
         this.ICON_MAX = 110;
         this.BORDER_STROKE = 3;
-        this.INITIAL_TOP_PADDING = 16; // offset konten bagian atas
-        this.ROW_GAP = 28; // JARAK ANTAR KATEGORI (perbaikan error TS)
+        this.INITIAL_TOP_PADDING = 16; // offset konten dari atas viewport
+        this.ROW_GAP = 28; // jarak antar kategori
+        this.SHOW_DEBUG_FRAME = false; // set true untuk lihat bingkai area
     }
     create() {
         super.create();
         this.createCommonButtons('MainMenuScene');
+        this.alive = true;
         this.buildTitle();
         this.computeArea();
         this.setupScrollArea();
         this.buildGrid();
         this.layoutScroll();
-        // Rebuild cepat setelah 1 frame
-        this.time.delayedCall(50, () => {
-            this.computeArea();
-            this.refreshMask();
-            this.buildGrid();
-            this.layoutScroll();
-        });
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
+        this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanup());
     }
     draw() {
-        // Dipanggil saat resize
-        this.computeArea();
-        this.refreshMask();
+        if (!this.alive)
+            return;
         // Simpan ratio scroll
         const ratio = this.contentHeight > this.areaHeight
             ? this.scrollY / Math.max(1, this.contentHeight - this.areaHeight)
             : 0;
+        this.computeArea();
+        // Perbarui posisi & ukuran scrollSurface di sini (bukan di refreshMask)
+        if (this.scrollSurface) {
+            this.scrollSurface.setPosition(this.areaLeft + this.areaWidth / 2, this.areaTop + this.areaHeight / 2);
+            this.scrollSurface.setSize(this.areaWidth, this.areaHeight);
+        }
+        this.refreshMask(); // hanya menggambar mask, tidak menyentuh scrollSurface
         this.buildGrid();
         this.scrollY = ratio * Math.max(0, this.contentHeight - this.areaHeight);
         this.clampScroll();
         this.layoutScroll();
         this.titleText?.setPosition(this.centerX, this.TITLE_Y);
     }
-    // ---------- Basic building ----------
     buildTitle() {
         try {
             this.titleText?.destroy();
@@ -119,6 +110,7 @@ export class AchievementScene extends BaseScene {
         this.areaHeight = Math.max(240, Math.round(this.scale.height - this.areaTop - 40));
     }
     setupScrollArea() {
+        // Hancurkan apapun yang ada (kalau scene ini dibuka ulang)
         try {
             this.listContainer?.destroy(true);
         }
@@ -131,14 +123,35 @@ export class AchievementScene extends BaseScene {
             this.scrollSurface?.destroy();
         }
         catch { }
-        this.listContainer = this.add.container(0, this.areaTop).setDepth(10);
+        try {
+            this.debugFrame?.destroy();
+        }
+        catch { }
+        // Container diletakkan di kiri-atas viewport (areaLeft, areaTop)
+        this.listContainer = this.add.container(this.areaLeft, this.areaTop).setDepth(10);
+        // Optional debug frame
+        this.debugFrame = this.add.graphics().setDepth(9);
+        if (this.SHOW_DEBUG_FRAME) {
+            this.debugFrame.lineStyle(1, 0x00aaff, 1);
+            this.debugFrame.strokeRect(this.areaLeft, this.areaTop, this.areaWidth, this.areaHeight);
+        }
+        else {
+            this.debugFrame.clear();
+        }
+        // Graphics untuk mask (geometry mask)
         this.maskGraphics = this.add.graphics().setDepth(9);
-        this.refreshMask();
-        this.maskGraphics.setVisible(false);
-        const mask = this.maskGraphics.createGeometryMask();
-        this.listContainer.setMask(mask);
-        this.scrollSurface = this.add.rectangle(this.areaLeft + this.areaWidth / 2, this.areaTop + this.areaHeight / 2, this.areaWidth, this.areaHeight, 0x000000, 0).setDepth(8);
-        this.scrollSurface.setInteractive({ useHandCursor: true });
+        this.refreshMask(); // gambar mask (aman, tidak menyentuh scrollSurface)
+        // Surface interaksi — dibuat setelah area & mask siap
+        this.scrollSurface = this.add.rectangle(this.areaLeft + this.areaWidth / 2, this.areaTop + this.areaHeight / 2, this.areaWidth, this.areaHeight, 0x000000, 0).setDepth(8).setInteractive({ useHandCursor: true });
+        // Pasang mask ke container (bukan ke surface)
+        const isCanvas = this.game.renderer?.type === Phaser.CANVAS;
+        if (!isCanvas && this.maskGraphics) {
+            const mask = this.maskGraphics.createGeometryMask();
+            this.listContainer.setMask(mask);
+        }
+        else {
+            this.listContainer.clearMask(); // fallback tanpa mask di Canvas
+        }
         // Drag
         this.scrollSurface.on('pointerdown', (p) => {
             this.dragActive = true;
@@ -146,7 +159,7 @@ export class AchievementScene extends BaseScene {
             this.dragBaseScroll = this.scrollY;
         });
         this.input.on(Phaser.Input.Events.POINTER_MOVE, (p) => {
-            if (!this.dragActive)
+            if (!this.dragActive || !this.alive || !this.scene.isActive())
                 return;
             const delta = p.y - this.dragStartY;
             this.scrollY = this.dragBaseScroll - delta;
@@ -156,22 +169,30 @@ export class AchievementScene extends BaseScene {
         this.input.on(Phaser.Input.Events.POINTER_UP, () => { this.dragActive = false; });
         this.input.on(Phaser.Input.Events.GAME_OUT, () => { this.dragActive = false; });
         // Wheel
-        this.input.on('wheel', (pointer, _gos, _dx, dy) => {
+        this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
+            if (!this.alive || !this.scene.isActive())
+                return;
             this.applyScroll(dy * 0.6);
         });
     }
     refreshMask() {
         if (!this.maskGraphics)
             return;
+        // Hanya menggambar mask; TIDAK menyentuh scrollSurface (no setSize / setPosition)
         this.maskGraphics.clear();
         this.maskGraphics.fillStyle(0xffffff, 1);
         this.maskGraphics.fillRect(this.areaLeft - this.BORDER_STROKE, this.areaTop - this.BORDER_STROKE, this.areaWidth + this.BORDER_STROKE * 2, this.areaHeight + this.BORDER_STROKE * 2);
-        this.scrollSurface?.setPosition(this.areaLeft + this.areaWidth / 2, this.areaTop + this.areaHeight / 2).setSize(this.areaWidth, this.areaHeight);
+        // Debug frame (opsional)
+        if (this.SHOW_DEBUG_FRAME && this.debugFrame) {
+            this.debugFrame.clear();
+            this.debugFrame.lineStyle(1, 0x00aaff, 1);
+            this.debugFrame.strokeRect(this.areaLeft, this.areaTop, this.areaWidth, this.areaHeight);
+        }
     }
-    // ---------- Build grid ----------
     buildGrid() {
-        if (!this.listContainer)
+        if (!this.listContainer || !this.alive)
             return;
+        // Bersihkan isi container
         const prev = this.listContainer.list.slice();
         prev.forEach(o => { try {
             o.destroy(true);
@@ -184,44 +205,42 @@ export class AchievementScene extends BaseScene {
         let cols = Math.max(2, Math.floor((this.areaWidth + this.GRID_GAP_X) / totalUnit));
         cols = Math.min(cols, 6);
         const usedWidth = cols * iconSize + (cols - 1) * this.GRID_GAP_X;
-        const startWorldX = this.areaLeft + (this.areaWidth - usedWidth) / 2;
-        let yCursorLocal = this.INITIAL_TOP_PADDING; // local dalam container
+        const startLocalX = (this.areaWidth - usedWidth) / 2; // lokal terhadap container
+        let yLocal = this.INITIAL_TOP_PADDING; // lokal terhadap container
         achievementCategories.forEach(cat => {
-            // Title kategori (gunakan worldY = areaTop + localY)
-            const catWorldY = this.areaTop + yCursorLocal;
-            const catTitle = this.add.text(this.areaLeft + this.areaWidth / 2, catWorldY, cat.name, {
+            // Judul kategori (buat world, lalu set local agar tepat di tengah container)
+            const catTitle = this.add.text(this.areaLeft + this.areaWidth / 2, this.areaTop + yLocal, cat.name, {
                 fontFamily: 'Nunito',
                 fontSize: `${this.CAT_TITLE_FONT}px`,
                 color: '#000'
             }).setOrigin(0.5);
             this.listContainer.add(catTitle);
-            yCursorLocal += this.CAT_TITLE_FONT + this.CAT_TITLE_GAP_BOTTOM;
+            catTitle.setPosition(this.areaWidth / 2, yLocal); // local
+            yLocal += this.CAT_TITLE_FONT + this.CAT_TITLE_GAP_BOTTOM;
             // Grid items
-            let colIndex = 0;
-            cat.items.forEach((ach) => {
-                const worldX = startWorldX + colIndex * (iconSize + this.GRID_GAP_X) + iconSize / 2;
-                const worldY = this.areaTop + yCursorLocal + iconSize / 2;
-                const box = this.buildIconBox(worldX, worldY, iconSize, ach);
-                this.listContainer.add(box);
-                colIndex++;
-                if (colIndex >= cols) {
-                    colIndex = 0;
-                    yCursorLocal += iconSize + this.GRID_GAP_Y;
+            let col = 0;
+            cat.items.forEach(ach => {
+                const xLocal = startLocalX + col * (iconSize + this.GRID_GAP_X) + iconSize / 2;
+                const yLocalCenter = yLocal + iconSize / 2;
+                const icon = this.buildIconBoxLocal(xLocal, yLocalCenter, iconSize, ach);
+                this.listContainer.add(icon);
+                col++;
+                if (col >= cols) {
+                    col = 0;
+                    yLocal += iconSize + this.GRID_GAP_Y;
                 }
             });
-            if (colIndex !== 0) {
-                yCursorLocal += iconSize + this.GRID_GAP_Y;
-            }
-            // Jarak antar kategori
-            yCursorLocal += this.ROW_GAP;
+            if (col !== 0)
+                yLocal += iconSize + this.GRID_GAP_Y;
+            yLocal += this.ROW_GAP; // jarak antar kategori
         });
-        this.contentHeight = yCursorLocal;
+        this.contentHeight = yLocal;
         this.clampScroll();
     }
-    buildIconBox(worldX, worldY, size, ach) {
-        const container = this.add.container(worldX, worldY);
-        container.width = size;
-        container.height = size;
+    buildIconBoxLocal(xLocal, yLocal, size, ach) {
+        const c = this.add.container(0, 0);
+        c.width = size;
+        c.height = size;
         const radius = Math.min(18, Math.floor(size * 0.28));
         const stroke = ach.unlocked ? 0x28a745 : 0x000000;
         const fill = ach.unlocked ? 0xe8f7e8 : 0xffffff;
@@ -229,12 +248,10 @@ export class AchievementScene extends BaseScene {
         g.lineStyle(this.BORDER_STROKE, stroke, 1).fillStyle(fill, 1);
         g.fillRoundedRect(-size / 2, -size / 2, size, size, radius);
         g.strokeRoundedRect(-size / 2, -size / 2, size, size, radius);
-        container.add(g);
+        c.add(g);
         if (ach.iconKey && this.textures.exists(ach.iconKey)) {
-            const img = this.add.image(0, -4, ach.iconKey)
-                .setDisplaySize(size * 0.6, size * 0.6)
-                .setOrigin(0.5);
-            container.add(img);
+            const img = this.add.image(0, -4, ach.iconKey).setDisplaySize(size * 0.6, size * 0.6).setOrigin(0.5);
+            c.add(img);
         }
         else {
             const txt = this.add.text(0, -4, 'Icon', {
@@ -242,7 +259,7 @@ export class AchievementScene extends BaseScene {
                 fontSize: `${Math.max(14, Math.round(size * 0.28))}px`,
                 color: '#000'
             }).setOrigin(0.5);
-            container.add(txt);
+            c.add(txt);
         }
         const label = this.add.text(0, size * 0.28, ach.title, {
             fontFamily: 'Nunito',
@@ -251,12 +268,12 @@ export class AchievementScene extends BaseScene {
             align: 'center',
             wordWrap: { width: Math.round(size * 0.9) }
         }).setOrigin(0.5, 0);
-        container.add(label);
-        container.setSize(size, size).setInteractive({ useHandCursor: true });
-        container.on('pointerover', () => this.redrawIcon(g, size, ach.unlocked ? 0xd4edda : 0xf5f5f5, stroke, radius));
-        container.on('pointerout', () => this.redrawIcon(g, size, fill, stroke, radius));
-        container.on('pointerup', () => { this.playSound('sfx_click', { volume: 0.6 }); });
-        return container;
+        c.add(label);
+        c.setPosition(xLocal, yLocal).setSize(size, size).setInteractive({ useHandCursor: true });
+        c.on('pointerover', () => this.redrawIcon(g, size, ach.unlocked ? 0xd4edda : 0xf5f5f5, stroke, radius));
+        c.on('pointerout', () => this.redrawIcon(g, size, fill, stroke, radius));
+        c.on('pointerup', () => this.playSound('sfx_click', { volume: 0.6 }));
+        return c;
     }
     redrawIcon(g, size, fillColor, strokeColor, radius) {
         g.clear();
@@ -264,11 +281,10 @@ export class AchievementScene extends BaseScene {
         g.fillRoundedRect(-size / 2, -size / 2, size, size, radius);
         g.strokeRoundedRect(-size / 2, -size / 2, size, size, radius);
     }
-    // ---------- Scroll ----------
     layoutScroll() {
         if (!this.listContainer)
             return;
-        this.listContainer.setPosition(0, this.areaTop - this.scrollY);
+        this.listContainer.setPosition(this.areaLeft, this.areaTop - this.scrollY);
     }
     applyScroll(delta) {
         this.scrollY += delta;
@@ -281,5 +297,46 @@ export class AchievementScene extends BaseScene {
             this.scrollY = 0;
         if (this.scrollY > maxScroll)
             this.scrollY = maxScroll;
+    }
+    cleanup() {
+        this.alive = false;
+        // Hapus listener input
+        try {
+            this.input.off('wheel');
+        }
+        catch { }
+        try {
+            this.input.off(Phaser.Input.Events.POINTER_MOVE);
+        }
+        catch { }
+        try {
+            this.input.off(Phaser.Input.Events.POINTER_UP);
+        }
+        catch { }
+        try {
+            this.input.off(Phaser.Input.Events.GAME_OUT);
+        }
+        catch { }
+        // Hancurkan objek grafik/containers
+        try {
+            this.listContainer?.destroy(true);
+        }
+        catch { }
+        try {
+            this.maskGraphics?.destroy();
+        }
+        catch { }
+        try {
+            this.scrollSurface?.destroy();
+        }
+        catch { }
+        try {
+            this.debugFrame?.destroy();
+        }
+        catch { }
+        this.listContainer = undefined;
+        this.maskGraphics = undefined;
+        this.scrollSurface = undefined;
+        this.debugFrame = undefined;
     }
 }

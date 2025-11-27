@@ -1,5 +1,7 @@
-import { quizQuestions, Question, DifficultyKey } from '../questions';
+import { Question, DifficultyKey } from '../questions';
 import { BaseScene } from './BaseScene';
+import { SettingsManager } from '../lib/Settings';
+import { getQuestionsForVersion } from '../versions';
 
 type Mode = 'belajar' | 'survive';
 
@@ -129,8 +131,11 @@ export class Game extends BaseScene {
   }
 
   private prepareQuestions() {
-    const n = Math.min(this.cfg.totalQuestions, quizQuestions.length);
-    this.questions = quizQuestions.slice(0, n);
+    // Ambil versi dari Settings
+    const version = SettingsManager.get().version;
+    const bank = getQuestionsForVersion(version);
+    const n = Math.min(this.cfg.totalQuestions, bank.length);
+    this.questions = bank.slice(0, n);
     this.currentQuestionIndex = 0;
   }
 
@@ -245,6 +250,7 @@ export class Game extends BaseScene {
     zone.on('pointerup', () => {
       if (this.isLocked) return;
       this.updateButtonGraphics(g, width, height, 0xf5f5f5, 0x000000, 3, radius);
+      // Suara klik
       this.playSound('sfx_click');
       onClick();
     });
@@ -277,6 +283,13 @@ export class Game extends BaseScene {
 
     const correctIdx = this.getAnswerIndex(q);
     const correct = optionIndex === correctIdx;
+
+    // Suara benar/salah
+    if (correct) {
+      this.playSound('sfx_correct', { volume: 1 });
+    } else {
+      this.playSound('sfx_incorrect', { volume: 1 });
+    }
 
     if (this.mode === 'belajar') {
       const elapsedSec = Math.max(0, Math.min(10, Math.floor((this.time.now - this.questionStartMs) / 1000)));

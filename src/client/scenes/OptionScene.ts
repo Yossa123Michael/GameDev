@@ -1,6 +1,8 @@
 import { BaseScene } from './BaseScene';
 import { SettingsManager, clamp01 } from '../lib/Settings';
 import type { Settings } from '../lib/Settings';
+import { formatVersionLabel } from '../versions';
+import { showVersionPicker } from '../ui/VersionPicker';
 
 export class OptionScene extends BaseScene {
   private title?: Phaser.GameObjects.Text;
@@ -24,7 +26,6 @@ export class OptionScene extends BaseScene {
   private versionText?: Phaser.GameObjects.Text;
 
   private opts: Settings = SettingsManager.get();
-  // FIX: hindari clash dengan BaseScene.settingsUnsub
   private optsUnsub?: () => void;
 
   constructor() {
@@ -40,6 +41,7 @@ export class OptionScene extends BaseScene {
       this.opts = s;
       try { this.updateToggleLabel(this.musicToggle!, `Music: ${this.opts.musicOn ? 'On' : 'Off'}`); } catch {}
       try { this.updateToggleLabel(this.sfxToggle!,   `SFX: ${this.opts.sfxOn   ? 'On' : 'Off'}`); } catch {}
+      try { this.versionText?.setText(`Version: ${formatVersionLabel(this.opts.version)}`); } catch {}
       try { this.applyOptions(this.opts); } catch {}
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -116,7 +118,7 @@ export class OptionScene extends BaseScene {
     this.refreshQualityButtons();
     y += 60;
 
-    // Language (EN)
+    // Language (EN) — placeholder
     this.langText = this.add.text(this.centerX, y, 'Language: EN', {
       fontFamily: 'Nunito', fontSize: '20px', color: '#555'
     }).setOrigin(0.5);
@@ -133,11 +135,21 @@ export class OptionScene extends BaseScene {
     if (this.vibrateToggle) this.sceneContentGroup.add(this.vibrateToggle);
     y += 70;
 
-    // Version (Global)
-    this.versionText = this.add.text(this.centerX, y, 'Version: Global', {
+    // Version (klik untuk pilih)
+    this.versionText = this.add.text(this.centerX, y, `Version: ${formatVersionLabel(this.opts.version)}`, {
       fontFamily: 'Nunito', fontSize: '20px', color: '#000'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.sceneContentGroup.add(this.versionText);
+
+    this.versionText.on('pointerup', () => {
+      this.playSound('sfx_click', { volume: 0.9 });
+      showVersionPicker(this, (picked) => {
+        SettingsManager.save({ version: picked });
+        this.opts = SettingsManager.get();
+        this.versionText?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
+      });
+    });
+
     y += 50;
 
     // Reset Progress (Local)
@@ -146,7 +158,7 @@ export class OptionScene extends BaseScene {
 
     // Pointer cursor util atas
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (_pointer: Phaser.Input.Pointer) => {
       let over = false;
       this.input.setDefaultCursor(over ? 'pointer' : 'default');
     });
@@ -222,7 +234,6 @@ export class OptionScene extends BaseScene {
       (knob as any).x = -trackW / 2 + trackW * v;
       lbl.setText(`${label}: ${Math.round(v * 100)}%`);
       onChange(v);
-      // tidak ada bunyi saat dragging (hindari “setruman”)
     };
 
     knob.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -328,13 +339,11 @@ export class OptionScene extends BaseScene {
     const trackW = Math.min(420, Math.round(this.scale.width * 0.8));
     const lbl = cont.getAt(0) as Phaser.GameObjects.Text | undefined;
     const track = cont.getAt(1) as Phaser.GameObjects.Rectangle | undefined;
-    // FIX tipe knob: circle() mengembalikan Arc, bukan Circle
     const knob = cont.getAt(2) as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse | undefined;
 
     lbl?.setText(`${label}: ${Math.round(value01 * 100)}%`).setOrigin(0.5).setPosition(0, -24);
     if (track) {
       track.setPosition(0, 10);
-      // update ukuran secara manual (Phaser rectangle tidak auto-resize fill)
       (track as any).width = trackW; (track as any).displayWidth = trackW;
     }
     if (knob) {

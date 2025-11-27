@@ -1,6 +1,8 @@
 export type GraphicsQuality = 'normal' | 'low';
 export type LanguageCode = 'en' | 'id';
 
+import { VersionCode, normalizeVersion } from '../versions';
+
 export type Settings = {
   musicOn: boolean;
   sfxOn: boolean;
@@ -9,7 +11,7 @@ export type Settings = {
   graphics: GraphicsQuality;
   language: LanguageCode;
   vibration: boolean;
-  version: 'global';
+  version: VersionCode; // 'global' | 'id' | 'de' | 'jp' | ...
 };
 
 const LS_KEY = 'rk:settings';
@@ -26,8 +28,10 @@ const DEFAULTS: Settings = {
 };
 
 export function clamp01(x: number) {
-  const v = Number.isFinite(x as any) ? Number(x) : 0;
-  return Math.max(0, Math.min(1, v));
+  if (Number.isNaN(x)) return 0;
+  if (x < 0) return 0;
+  if (x > 1) return 1;
+  return x;
 }
 
 export class SettingsManager {
@@ -46,8 +50,9 @@ export class SettingsManager {
       const merged: Settings = {
         ...DEFAULTS,
         ...parsed,
-        musicVol: clamp01((parsed.musicVol ?? DEFAULTS.musicVol)),
-        sfxVol: clamp01((parsed.sfxVol ?? DEFAULTS.sfxVol)),
+        musicVol: clamp01(parsed.musicVol ?? DEFAULTS.musicVol),
+        sfxVol: clamp01(parsed.sfxVol ?? DEFAULTS.sfxVol),
+        version: normalizeVersion((parsed as any).version),
       };
       this.cache = merged;
       return merged;
@@ -64,6 +69,7 @@ export class SettingsManager {
       ...next,
       musicVol: clamp01(next.musicVol ?? cur.musicVol),
       sfxVol: clamp01(next.sfxVol ?? cur.sfxVol),
+      version: normalizeVersion((next as any).version ?? cur.version),
     };
     try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
     this.cache = merged;
