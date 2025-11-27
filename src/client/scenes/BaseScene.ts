@@ -38,7 +38,6 @@ export class BaseScene extends Phaser.Scene {
   protected centerX!: number;
   protected centerY!: number;
 
-  // musicButton removed (we no longer expose corner mute/unmute)
   protected backButton!: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle | undefined;
   protected sceneContentGroup!: Phaser.GameObjects.Group;
 
@@ -185,7 +184,12 @@ export class BaseScene extends Phaser.Scene {
 
     const { pad, iconSize } = this.getUIIconMetrics();
 
-    // NOTE: music/horn button deliberately removed per request (no corner mute/unmute)
+    // HILANGKAN back button khusus di MainMenuScene
+    if (this.scene.key === 'MainMenuScene') {
+      this.backButton = undefined;
+      return;
+    }
+
     // Only create back button (if asset exists)
     if (this.textures.exists('back_arrow')) {
       this.backButton = this.add

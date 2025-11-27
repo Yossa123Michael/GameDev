@@ -1,3 +1,4 @@
+import { normalizeVersion } from '../versions';
 const LS_KEY = 'rk:settings';
 const DEFAULTS = {
     musicOn: true,
@@ -10,8 +11,13 @@ const DEFAULTS = {
     version: 'global',
 };
 export function clamp01(x) {
-    const v = Number.isFinite(x) ? Number(x) : 0;
-    return Math.max(0, Math.min(1, v));
+    if (Number.isNaN(x))
+        return 0;
+    if (x < 0)
+        return 0;
+    if (x > 1)
+        return 1;
+    return x;
 }
 export class SettingsManager {
     static get() {
@@ -27,8 +33,9 @@ export class SettingsManager {
             const merged = {
                 ...DEFAULTS,
                 ...parsed,
-                musicVol: clamp01((parsed.musicVol ?? DEFAULTS.musicVol)),
-                sfxVol: clamp01((parsed.sfxVol ?? DEFAULTS.sfxVol)),
+                musicVol: clamp01(parsed.musicVol ?? DEFAULTS.musicVol),
+                sfxVol: clamp01(parsed.sfxVol ?? DEFAULTS.sfxVol),
+                version: normalizeVersion(parsed.version),
             };
             this.cache = merged;
             return merged;
@@ -45,6 +52,7 @@ export class SettingsManager {
             ...next,
             musicVol: clamp01(next.musicVol ?? cur.musicVol),
             sfxVol: clamp01(next.sfxVol ?? cur.sfxVol),
+            version: normalizeVersion(next.version ?? cur.version),
         };
         try {
             localStorage.setItem(LS_KEY, JSON.stringify(merged));

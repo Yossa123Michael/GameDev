@@ -31,6 +31,11 @@ const achievementCategories = [
 export class AchievementScene extends BaseScene {
     constructor() {
         super('AchievementScene');
+        // Nullable properties (untuk menghindari TS2412 & aman saat cleanup)
+        this.listContainer = null;
+        this.maskGraphics = null;
+        this.scrollSurface = null;
+        this.debugFrame = null;
         this.alive = true;
         this.scrollY = 0;
         this.contentHeight = 0;
@@ -334,9 +339,10 @@ export class AchievementScene extends BaseScene {
             this.debugFrame?.destroy();
         }
         catch { }
-        this.listContainer = undefined;
-        this.maskGraphics = undefined;
-        this.scrollSurface = undefined;
-        this.debugFrame = undefined;
+        // Null-assignment untuk mematuhi exactOptionalPropertyTypes
+        this.listContainer = null;
+        this.maskGraphics = null;
+        this.scrollSurface = null;
+        this.debugFrame = null;
     }
 }

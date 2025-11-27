@@ -1,5 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { SettingsManager, clamp01 } from '../lib/Settings';
+import { formatVersionLabel } from '../versions';
+import { showVersionPicker } from '../ui/VersionPicker';
 export class OptionScene extends BaseScene {
     constructor() {
         super('OptionScene');
@@ -8,7 +10,7 @@ export class OptionScene extends BaseScene {
     create() {
         super.create();
         super.createCommonButtons('MainMenuScene');
-        // subscribe
+        // subscribe perubahan settings
         this.optsUnsub = SettingsManager.subscribe((s) => {
             this.opts = s;
             try {
@@ -17,6 +19,10 @@ export class OptionScene extends BaseScene {
             catch { }
             try {
                 this.updateToggleLabel(this.sfxToggle, `SFX: ${this.opts.sfxOn ? 'On' : 'Off'}`);
+            }
+            catch { }
+            try {
+                this.versionText?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
             }
             catch { }
             try {
@@ -97,7 +103,7 @@ export class OptionScene extends BaseScene {
             this.sceneContentGroup.add(this.qualityLow);
         this.refreshQualityButtons();
         y += 60;
-        // Language (EN)
+        // Language (EN) — placeholder
         this.langText = this.add.text(this.centerX, y, 'Language: EN', {
             fontFamily: 'Nunito', fontSize: '20px', color: '#555'
         }).setOrigin(0.5);
@@ -117,11 +123,26 @@ export class OptionScene extends BaseScene {
         if (this.vibrateToggle)
             this.sceneContentGroup.add(this.vibrateToggle);
         y += 70;
-        // Version (Global)
-        this.versionText = this.add.text(this.centerX, y, 'Version: Global', {
+        // Version row — teks + zona interaktif selebar baris (agar pasti bisa diklik)
+        this.versionText = this.add.text(this.centerX, y, `Version: ${formatVersionLabel(this.opts.version)}`, {
             fontFamily: 'Nunito', fontSize: '20px', color: '#000'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(10);
         this.sceneContentGroup.add(this.versionText);
+        const rowW = Math.round(this.scale.width * 0.86);
+        const rowH = Math.max(48, Math.round(this.scale.height * 0.08));
+        this.versionZone = this.add.zone(this.centerX, y, rowW, rowH)
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(9);
+        this.versionZone.on('pointerup', () => {
+            this.playSound('sfx_click', { volume: 0.9 });
+            showVersionPicker(this, (picked) => {
+                SettingsManager.save({ version: picked });
+                this.opts = SettingsManager.get();
+                this.versionText?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
+            });
+        });
+        this.sceneContentGroup.add(this.versionZone);
         y += 50;
         // Reset Progress (Local)
         this.resetBtn = this.createButton(y, 'Reset Progress (Local)', () => this.openConfirm());
@@ -129,7 +150,7 @@ export class OptionScene extends BaseScene {
             this.sceneContentGroup.add(this.resetBtn);
         // Pointer cursor util atas
         this.input.off(Phaser.Input.Events.POINTER_MOVE);
-        this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer) => {
+        this.input.on(Phaser.Input.Events.POINTER_MOVE, (_pointer) => {
             let over = false;
             this.input.setDefaultCursor(over ? 'pointer' : 'default');
         });
@@ -160,7 +181,11 @@ export class OptionScene extends BaseScene {
         y += lineH - 10;
         this.vibrateToggle?.setPosition(colX, y);
         y += lineH + 10;
-        this.versionText?.setPosition(colX, y);
+        // Version row layout
+        const rowW = Math.round(this.scale.width * 0.86);
+        const rowH = Math.max(48, Math.round(this.scale.height * 0.08));
+        this.versionText?.setPosition(colX, y).setDepth(10);
+        this.versionZone?.setPosition(colX, y).setSize(rowW, rowH).setDepth(9);
         y += lineH - 10;
         this.resetBtn?.setPosition(colX, y);
     }
@@ -196,7 +221,6 @@ export class OptionScene extends BaseScene {
             knob.x = -trackW / 2 + trackW * v;
             lbl.setText(`${label}: ${Math.round(v * 100)}%`);
             onChange(v);
-            // tidak ada bunyi saat dragging (hindari “setruman”)
         };
         knob.on('pointerdown', (p) => {
             updateFromPointer(p.x);
@@ -328,12 +352,10 @@ export class OptionScene extends BaseScene {
         const trackW = Math.min(420, Math.round(this.scale.width * 0.8));
         const lbl = cont.getAt(0);
         const track = cont.getAt(1);
-        // FIX tipe knob: circle() mengembalikan Arc, bukan Circle
         const knob = cont.getAt(2);
         lbl?.setText(`${label}: ${Math.round(value01 * 100)}%`).setOrigin(0.5).setPosition(0, -24);
         if (track) {
             track.setPosition(0, 10);
-            // update ukuran secara manual (Phaser rectangle tidak auto-resize fill)
             track.width = trackW;
             track.displayWidth = trackW;
         }

@@ -1,5 +1,6 @@
-import { quizQuestions } from '../questions';
 import { BaseScene } from './BaseScene';
+import { SettingsManager } from '../lib/Settings';
+import { getQuestionsForVersion } from '../versions';
 const difficultySettings = {
     mudah: { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 1, timeMultiplier: 1, timeCeiling: false, mix: { mudah: 0.9, menengah: 0.1, sulit: 0.0 } },
     menengah: { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 2, timeMultiplier: 1.5, timeCeiling: true, mix: { mudah: 0.1, menengah: 0.8, sulit: 0.1 } },
@@ -98,8 +99,11 @@ export class Game extends BaseScene {
             this.livesText.setVisible(false);
     }
     prepareQuestions() {
-        const n = Math.min(this.cfg.totalQuestions, quizQuestions.length);
-        this.questions = quizQuestions.slice(0, n);
+        // Ambil versi dari Settings
+        const version = SettingsManager.get().version;
+        const bank = getQuestionsForVersion(version);
+        const n = Math.min(this.cfg.totalQuestions, bank.length);
+        this.questions = bank.slice(0, n);
         this.currentQuestionIndex = 0;
     }
     startTimer() {

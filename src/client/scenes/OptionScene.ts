@@ -24,6 +24,7 @@ export class OptionScene extends BaseScene {
   private confirmBox?: Phaser.GameObjects.Container;
 
   private versionText?: Phaser.GameObjects.Text;
+  private versionZone?: Phaser.GameObjects.Zone; // zona klik selebar baris
 
   private opts: Settings = SettingsManager.get();
   private optsUnsub?: () => void;
@@ -36,7 +37,7 @@ export class OptionScene extends BaseScene {
     super.create();
     super.createCommonButtons('MainMenuScene');
 
-    // subscribe
+    // subscribe perubahan settings
     this.optsUnsub = SettingsManager.subscribe((s) => {
       this.opts = s;
       try { this.updateToggleLabel(this.musicToggle!, `Music: ${this.opts.musicOn ? 'On' : 'Off'}`); } catch {}
@@ -135,13 +136,20 @@ export class OptionScene extends BaseScene {
     if (this.vibrateToggle) this.sceneContentGroup.add(this.vibrateToggle);
     y += 70;
 
-    // Version (klik untuk pilih)
+    // Version row — teks + zona interaktif selebar baris (agar pasti bisa diklik)
     this.versionText = this.add.text(this.centerX, y, `Version: ${formatVersionLabel(this.opts.version)}`, {
       fontFamily: 'Nunito', fontSize: '20px', color: '#000'
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(10);
     this.sceneContentGroup.add(this.versionText);
 
-    this.versionText.on('pointerup', () => {
+    const rowW = Math.round(this.scale.width * 0.86);
+    const rowH = Math.max(48, Math.round(this.scale.height * 0.08));
+    this.versionZone = this.add.zone(this.centerX, y, rowW, rowH)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(9);
+
+    this.versionZone.on('pointerup', () => {
       this.playSound('sfx_click', { volume: 0.9 });
       showVersionPicker(this, (picked) => {
         SettingsManager.save({ version: picked });
@@ -149,6 +157,7 @@ export class OptionScene extends BaseScene {
         this.versionText?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
       });
     });
+    this.sceneContentGroup.add(this.versionZone);
 
     y += 50;
 
@@ -192,7 +201,14 @@ export class OptionScene extends BaseScene {
 
     this.langText?.setPosition(colX, y); y += lineH - 10;
     this.vibrateToggle?.setPosition(colX, y); y += lineH + 10;
-    this.versionText?.setPosition(colX, y); y += lineH - 10;
+
+    // Version row layout
+    const rowW = Math.round(this.scale.width * 0.86);
+    const rowH = Math.max(48, Math.round(this.scale.height * 0.08));
+    this.versionText?.setPosition(colX, y).setDepth(10);
+    this.versionZone?.setPosition(colX, y).setSize(rowW, rowH).setDepth(9);
+
+    y += lineH - 10;
     this.resetBtn?.setPosition(colX, y);
   }
 
