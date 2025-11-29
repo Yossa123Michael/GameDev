@@ -1,5 +1,5 @@
 import { versionsOrder, versionLabels } from '../versions';
-// Popup sederhana untuk memilih versi. Independen dari helper OptionScene.
+// Popup sederhana untuk memilih versi.
 export function showVersionPicker(scene, onPick) {
     const { width, height } = scene.scale;
     // Background semi-transparan

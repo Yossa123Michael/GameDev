@@ -1,11 +1,12 @@
 import type { Question } from './questions';
 
-// Kode versi (negara) — bisa ditambah sewaktu-waktu
-export type VersionCode = 'global' | 'de' | 'jp';
+// Kode versi (negara)
+export type VersionCode = 'global' | 'id' | 'de' | 'jp';
 
 // Label yang ditampilkan ke user
 export const versionLabels: Record<VersionCode, string> = {
   global: 'Global',
+  id: 'Indonesia',
   de: 'Jerman',
   jp: 'Jepang',
 };
@@ -14,9 +15,9 @@ export function formatVersionLabel(v: VersionCode) {
   return versionLabels[v] ?? v;
 }
 
-// Fallback normalisasi dari string bebas ke salah satu VersionCode
+// Normalisasi string bebas ke salah satu VersionCode yang valid
 export function normalizeVersion(v: string | undefined | null): VersionCode {
-  if (v === 'de' || v === 'jp' || v === 'global') return v;
+  if (v === 'global' || v === 'id' || v === 'de' || v === 'jp') return v;
   return 'global';
 }
 
@@ -24,7 +25,42 @@ export function normalizeVersion(v: string | undefined | null): VersionCode {
 import { quizQuestions } from './questions';
 
 // Contoh bank regional (placeholder). Silakan lengkapi/ubah kontennya:
-// Catatan: Ini HANYA contoh beberapa butir agar arsitektur jalan, bukan soal final.
+
+// Indonesia
+const bankID: Question[] = [
+  {
+    question: '[ID] Rambu segi delapan merah bertuliskan "STOP" artinya?',
+    options: ['Beri Jalan', 'Berhenti', 'Dilarang Masuk', 'Hati-hati'],
+    correctAnswerIndex: 1,
+    difficulty: 'mudah',
+  },
+  {
+    question: '[ID] Rambu lingkaran merah dengan garis putih horizontal berlaku untuk?',
+    options: ['Semua kendaraan dari arah tersebut', 'Hanya mobil', 'Hanya motor', 'Hanya bus'],
+    correctAnswerIndex: 0,
+    difficulty: 'mudah',
+  },
+  {
+    question: '[ID] Marka "Zebra Cross" menandakan?',
+    options: ['Area parkir', 'Penyeberangan pejalan kaki', 'Awal jalan tol', 'Jalan rusak'],
+    correctAnswerIndex: 1,
+    difficulty: 'mudah',
+  },
+  {
+    question: '[ID] Rambu segitiga terbalik bingkai merah artinya?',
+    options: ['Jalan Menurun', 'Beri Jalan (Yield)', 'Bahaya', 'Berhenti'],
+    correctAnswerIndex: 1,
+    difficulty: 'menengah',
+  },
+  {
+    question: '[ID] Tanda larangan parkir (huruf P dicoret) artinya?',
+    options: ['Boleh berhenti sebentar', 'Dilarang parkir', 'Dilarang berhenti sama sekali', 'Parkir paralel wajib'],
+    correctAnswerIndex: 1,
+    difficulty: 'menengah',
+  },
+];
+
+// Jerman
 const bankDE: Question[] = [
   {
     question: '[DE] Apa arti rambu "Autobahn"?',
@@ -40,10 +76,11 @@ const bankDE: Question[] = [
   },
 ];
 
+// Jepang
 const bankJP: Question[] = [
   {
     question: '[JP] Rambu segitiga terbalik merah di Jepang artinya?',
-    options: ['Beri Jalan (止まれ/Yield?)', 'Berhenti Total', 'Dilarang Masuk', 'Zona Sekolah'],
+    options: ['Beri Jalan', 'Berhenti Total', 'Dilarang Masuk', 'Zona Sekolah'],
     correctAnswerIndex: 0,
     difficulty: 'menengah',
   },
@@ -55,14 +92,15 @@ const bankJP: Question[] = [
   },
 ];
 
-// Urutan versi yang akan ditampilkan di picker
-export const versionsOrder: VersionCode[] = ['global', 'de', 'jp'];
+// Urutan versi yang ditampilkan di picker
+export const versionsOrder: VersionCode[] = ['global', 'id', 'de', 'jp'];
 
 // Ambil bank soal sesuai versi
 export function getQuestionsForVersion(v: VersionCode): Question[] {
   switch (v) {
-    case 'de': return bankDE.length ? bankDE : quizQuestions; // fallback jika kosong
-    case 'jp': return bankJP.length ? bankJP : quizQuestions; // fallback jika kosong
+    case 'id': return bankID.length ? bankID : quizQuestions;
+    case 'de': return bankDE.length ? bankDE : quizQuestions;
+    case 'jp': return bankJP.length ? bankJP : quizQuestions;
     case 'global':
     default:
       return quizQuestions;

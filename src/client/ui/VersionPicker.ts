@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 import type { VersionCode } from '../versions';
 import { versionsOrder, versionLabels } from '../versions';
 
-// Popup sederhana untuk memilih versi. Independen dari helper OptionScene.
+// Popup sederhana untuk memilih versi.
 export function showVersionPicker(
   scene: Phaser.Scene,
   onPick: (version: VersionCode) => void
@@ -34,7 +34,7 @@ export function showVersionPicker(
   panel.add(title);
 
   let y = -totalH / 2 + 60;
-  versionsOrder.forEach((ver) => {
+  versionsOrder.forEach((ver: VersionCode) => {
     const btn = makeButton(scene, panelW - 40, rowH, versionLabels[ver], () => {
       try { onPick(ver); } catch {}
       destroyPopup();
