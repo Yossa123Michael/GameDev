@@ -1,7 +1,7 @@
 import { Question, DifficultyKey } from '../questions';
 import { BaseScene } from './BaseScene';
 import { SettingsManager } from '../lib/Settings';
-import { getQuestionsForVersion } from '../versions';
+import { getQuestionsForVersion } from '../version';
 
 type Mode = 'belajar' | 'survive';
 

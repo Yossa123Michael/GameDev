@@ -1,6 +1,6 @@
 import { BaseScene } from './BaseScene';
 import { SettingsManager } from '../lib/Settings';
-import { getQuestionsForVersion } from '../versions';
+import { getQuestionsForVersion } from '../version';
 const difficultySettings = {
     mudah: { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 1, timeMultiplier: 1, timeCeiling: false, mix: { mudah: 0.9, menengah: 0.1, sulit: 0.0 } },
     menengah: { totalQuestions: 20, totalTime: 180, perQuestionTime: 10, initialLives: 3, scoreBase: 2, timeMultiplier: 1.5, timeCeiling: true, mix: { mudah: 0.1, menengah: 0.8, sulit: 0.1 } },

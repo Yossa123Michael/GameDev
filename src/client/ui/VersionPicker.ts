@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
-import type { VersionCode } from '../versions';
-import { versionsOrder, versionLabels } from '../versions';
+import type { VersionCode } from '../version';
+import { versionsOrder, versionLabels } from '../version';
 
 // Popup sederhana untuk memilih versi.
 export function showVersionPicker(

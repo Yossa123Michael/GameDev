@@ -1,4 +1,4 @@
-import { normalizeVersion } from '../versions';
+import { normalizeVersion } from '../version';
 const LS_KEY = 'rk:settings';
 const DEFAULTS = {
     musicOn: true,
