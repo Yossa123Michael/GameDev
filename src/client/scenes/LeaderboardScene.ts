@@ -1,7 +1,6 @@
 import { BaseScene } from './BaseScene';
 import { supabase } from '../lib/supabaseClient';
 import { getLastSubmission } from '../lib/submitScore';
-import { t } from '../lib/i18n';
 
 type Entry = { id?: number; name: string; score: number; created_at: string; user_id?: string };
 type UserBest = { name: string; score: number; created_at: string; rank?: number };
@@ -47,7 +46,6 @@ export class LeaderboardScene extends BaseScene {
   private readonly USER_BOTTOM_MARGIN = 30;
   private readonly STROKE_W = 3;
 
-  // Removed title/header constants → adjust scroll origin
   private buttonWidth = 0;
   private buttonLeft = 0;
   private scrollTopY = 0;
@@ -70,16 +68,8 @@ export class LeaderboardScene extends BaseScene {
     this.time.delayedCall(60, () => { if (this.alive) this.fullRebuild(); });
     this.computeRankInBackground();
 
-    // Listen language change to relabel user row & list (names unaffected, but placeholders could)
-    this.game.events.on('lang:changed', this.onLangChanged, this);
-
     this.events.once('shutdown', () => { this.alive = false; this.cleanup(); });
     this.events.once('destroy',  () => { this.alive = false; this.cleanup(); });
-  }
-
-  private onLangChanged() {
-    // If you ever reintroduce header or title with t(), rebuild
-    this.fullRebuild(this.getScrollRatio());
   }
 
   public override draw() {
@@ -100,8 +90,7 @@ export class LeaderboardScene extends BaseScene {
     this.buttonLeft = Math.round((this.scale.width - this.buttonWidth) / 2);
     this.radius = Math.min(24, Math.floor(this.ROW_HEIGHT * 0.35));
 
-    // Scroll top now near top (just under back button)
-    const topPad = Math.round(this.scale.height * 0.12); // space for back button + safety
+    const topPad = Math.round(this.scale.height * 0.12);
     this.scrollTopY = topPad;
 
     this.userBottomCenterY = this.scale.height - this.USER_BOTTOM_MARGIN - this.ROW_HEIGHT / 2;
@@ -197,7 +186,7 @@ export class LeaderboardScene extends BaseScene {
     try { this.maskGraphics?.destroy(); } catch {}
     try { this.scrollSurface?.destroy(); } catch {}
 
-    this.rebuildUserRow();  // build user box bottom
+    this.rebuildUserRow();
     this.buildScrollArea();
     this.renderList();
 
@@ -409,6 +398,5 @@ export class LeaderboardScene extends BaseScene {
     try { this.input.off(Phaser.Input.Events.POINTER_MOVE); } catch {}
     try { this.input.off(Phaser.Input.Events.POINTER_UP); } catch {}
     try { this.input.off(Phaser.Input.Events.GAME_OUT); } catch {}
-    this.game.events.off('lang:changed', this.onLangChanged, this);
   }
 }

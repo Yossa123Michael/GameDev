@@ -15,20 +15,16 @@ export class OptionScene extends BaseScene {
   private contentHeight = 0;
   private pendingRebuild = false;
 
-  // Drag state with threshold
   private pendingDrag = false;
   private dragging = false;
   private dragStartY = 0;
   private dragBase = 0;
   private readonly DRAG_THRESHOLD = 10;
 
-  // Controls
   private musicToggle?: Phaser.GameObjects.Container;
   private sfxToggle?: Phaser.GameObjects.Container;
   private musicSlider?: Phaser.GameObjects.Container;
   private sfxSlider?: Phaser.GameObjects.Container;
-
-  // Animation toggle (menggantikan Graphics Quality)
   private animationToggle?: Phaser.GameObjects.Container;
 
   private langRowLabel?: Phaser.GameObjects.Text;
@@ -45,7 +41,6 @@ export class OptionScene extends BaseScene {
   private resetBtn?: Phaser.GameObjects.Container;
   private confirmBox?: Phaser.GameObjects.Container;
 
-  // Metrics
   private TITLE_Y = 90;
   private STROKE_W = 3;
 
@@ -54,8 +49,8 @@ export class OptionScene extends BaseScene {
   private GAP_AFTER_SFX_TOGGLE = 108;
   private LIST_TOP_PAD = 28;
 
-  private LANG_GAP = 170;   // jarak tombol bahasa
-  private VERSION_GAP = 140; // jarak tombol versi
+  private LANG_GAP = 170;
+  private VERSION_GAP = 140;
 
   private buttonWidth = 0;
   private buttonLeft = 0;
@@ -190,13 +185,12 @@ export class OptionScene extends BaseScene {
     if (this.scrollY > maxScroll) this.scrollY = maxScroll;
   }
 
-  // ---------- Scroll handlers ----------
   private attachScrollHandlers() {
     this.detachScrollHandlers();
 
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (p: Phaser.Input.Pointer) => {
       if (!this.isInScrollArea(p)) return;
-      if (this.isOverAnyInteractive(p)) return; // biarkan klik ke tombol
+      if (this.isOverAnyInteractive(p)) return;
       this.pendingDrag = true;
       this.dragging = false;
       this.dragStartY = p.y;
@@ -266,7 +260,6 @@ export class OptionScene extends BaseScene {
     return false;
   }
 
-  // ---------- Content ----------
   private renderList() {
     if (!this.listContainer) return;
     this.listContainer.removeAll(true);
@@ -274,33 +267,28 @@ export class OptionScene extends BaseScene {
     const cx = Math.floor(this.scale.width / 2);
     let y = this.LIST_TOP_PAD;
 
-    // Music toggle
     this.musicToggle = this.createToggle(0, `${t('music')}: ${this.opts.musicOn ? t('on') : t('off')}`, this.opts.musicOn, (v) => {
       SettingsManager.save({ musicOn: v });
       this.updateToggleLabel(this.musicToggle!, `${t('music')}: ${v ? t('on') : t('off')}`);
     });
     this.place(this.musicToggle, cx, y); y += this.GAP_AFTER_MUSIC_TOGGLE;
 
-    // SFX toggle
     this.sfxToggle = this.createToggle(0, `${t('sfx')}: ${this.opts.sfxOn ? t('on') : t('off')}`, this.opts.sfxOn, (v) => {
       SettingsManager.save({ sfxOn: v });
       this.updateToggleLabel(this.sfxToggle!, `${t('sfx')}: ${v ? t('on') : t('off')}`);
     });
     this.place(this.sfxToggle, cx, y); y += this.GAP_AFTER_SFX_TOGGLE;
 
-    // Music slider
     this.musicSlider = this.createSlider(0, t('musicVolume'), this.opts.musicVol, (val) => {
       SettingsManager.save({ musicVol: clamp01(val) });
     });
     this.place(this.musicSlider, cx, y); y += 72;
 
-    // SFX slider
     this.sfxSlider = this.createSlider(0, t('sfxVolume'), this.opts.sfxVol, (val) => {
       SettingsManager.save({ sfxVol: clamp01(val) });
     });
     this.place(this.sfxSlider, cx, y); y += 88;
 
-    // Animation toggle (mengganti Graphics Quality)
     this.animationToggle = this.createToggle(
       0,
       `${t('animation')}: ${((this.opts as any).animation !== false) ? t('on') : t('off')}`,
@@ -312,29 +300,23 @@ export class OptionScene extends BaseScene {
     );
     this.place(this.animationToggle, cx, y); y += 88;
 
-    // Language
     this.langRowLabel = this.add.text(0, 0, t('language'), {
       fontFamily: 'Nunito', fontSize: '20px', color: '#555'
     }).setOrigin(0.5);
     this.place(this.langRowLabel, cx, y); y += 42;
 
     this.langIdBtn = this.createSmallButton(0, t('indonesian'), () => {
-  setLang('id');
-  emitLanguageChanged(this);
-  this.playSound('sfx_click', { volume: 0.7 });
-  this.relabelAll();
-  this.scene.get('LeaderboardScene')?.events.emit('redraw-request');
-  this.markSegmented(this.langIdBtn!, true); this.markSegmented(this.langEnBtn!, false);
-});
-this.langEnBtn = this.createSmallButton(0, t('english'), () => {
-  setLang('en');
-  emitLanguageChanged(this);
-  this.playSound('sfx_click', { volume: 0.7 });
-  this.relabelAll();
-  this.scene.get('LeaderboardScene')?.events.emit('redraw-request');
-  this.markSegmented(this.langIdBtn!, false); this.markSegmented(this.langEnBtn!, true);
-});
-
+      setLang('id'); emitLanguageChanged(this);
+      this.playSound('sfx_click', { volume: 0.7 });
+      this.relabelAll();
+      this.markSegmented(this.langIdBtn!, true); this.markSegmented(this.langEnBtn!, false);
+    });
+    this.langEnBtn = this.createSmallButton(0, t('english'), () => {
+      setLang('en'); emitLanguageChanged(this);
+      this.playSound('sfx_click', { volume: 0.7 });
+      this.relabelAll();
+      this.markSegmented(this.langIdBtn!, false); this.markSegmented(this.langEnBtn!, true);
+    });
     this.place(this.langIdBtn, cx - this.LANG_GAP / 2, y);
     this.place(this.langEnBtn, cx + this.LANG_GAP / 2, y);
     const isId = getLang() === 'id';
@@ -342,7 +324,6 @@ this.langEnBtn = this.createSmallButton(0, t('english'), () => {
     this.markSegmented(this.langEnBtn!, !isId);
     y += 88;
 
-    // Vibration
     this.vibrateToggle = this.createToggle(0, `${t('vibration')}: ${this.opts.vibration ? t('on') : t('off')}`, this.opts.vibration, (v) => {
       SettingsManager.save({ vibration: v });
       this.updateToggleLabel(this.vibrateToggle!, `${t('vibration')}: ${v ? t('on') : t('off')}`);
@@ -350,7 +331,6 @@ this.langEnBtn = this.createSmallButton(0, t('english'), () => {
     });
     this.place(this.vibrateToggle, cx, y); y += 88;
 
-    // Version
     this.versionRowLabel = this.add.text(0, 0, `${t('version')}: ${formatVersionLabel(this.opts.version)}`, {
       fontFamily: 'Nunito', fontSize: '20px', color: '#000'
     }).setOrigin(0.5);
@@ -374,7 +354,6 @@ this.langEnBtn = this.createSmallButton(0, t('english'), () => {
     this.place(this.versionNextBtn, cx + this.VERSION_GAP, y);
     y += 88;
 
-    // Reset
     this.resetBtn = this.createButton(0, t('resetLocal'), () => this.openConfirm());
     this.place(this.resetBtn, cx, y);
     y += 72;
@@ -384,7 +363,6 @@ this.langEnBtn = this.createSmallButton(0, t('english'), () => {
   }
 
   private relabelAll() {
-    // Update semua label berdasarkan bahasa baru
     try { this.title?.setText(t('optionsTitle')); } catch {}
     try { this.updateToggleLabel(this.musicToggle!, `${t('music')}: ${this.opts.musicOn ? t('on') : t('off')}`); } catch {}
     try { this.updateToggleLabel(this.sfxToggle!,   `${t('sfx')}: ${this.opts.sfxOn   ? t('on') : t('off')}`); } catch {}
@@ -512,10 +490,6 @@ this.langEnBtn = this.createSmallButton(0, t('english'), () => {
 
     c.add([g, tObj, z]);
     return c;
-  }
-
-  private refreshQualityButtons() {
-    // Dihapus: tidak ada lagi graphics quality, diganti animasi
   }
 
   private openConfirm() {

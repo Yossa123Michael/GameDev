@@ -22,27 +22,23 @@ const dicts: Record<LangKey, Dict> = {
     resetLocal: 'Reset Progres (Lokal)',
     animation: 'Animasi',
 
-    // Leaderboard (title/header akan dihapus, tapi tetap disediakan bila ingin pakai kembali)
     leaderboardTitle: 'Papan Skor',
     headerRank: 'Peringkat',
     headerName: 'Nama',
     headerScore: 'Skor',
 
-    // Achievement
     achievementTitle: 'Pencapaian',
     achievementSectionStart: 'Memulai',
     achievementSectionScore: 'Skor',
     achievementSectionCombo: 'Kombo',
     achievementSectionCollect: 'Koleksi',
 
-    // Credit
     creditTitle: 'Kredit',
     creditCreator: 'Pembuat',
     creditVisualArtist: 'Seniman Visual',
     creditSoundArtist: 'Seniman Suara',
     creditFont: 'Font',
 
-    // Main Menu & Mode (contoh)
     mainPlay: 'Main',
     mainOptions: 'Opsi',
     mainLeaderboard: 'Papan Skor',
@@ -125,7 +121,7 @@ export function nextLang(): LangKey {
   return currentLang === 'id' ? 'en' : 'id';
 }
 
-// Event helper (opsional): panggil setelah setLang
+// Emit event global agar semua scene bisa relabel
 export function emitLanguageChanged(scene: Phaser.Scene) {
   scene.game.events.emit('lang:changed', getLang());
 }
