@@ -16,7 +16,7 @@ export function normalizeVersion(v) {
 }
 // Ambil bank soal global (existing)
 import { quizQuestions } from './questions';
-// Contoh bank regional (placeholder). Silakan lengkapi/ubah kontennya:
+// Contoh bank regional (placeholder). Silakan lengkapi/ubah kontennya.
 // Indonesia
 const bankID = [
     {
@@ -36,18 +36,6 @@ const bankID = [
         options: ['Area parkir', 'Penyeberangan pejalan kaki', 'Awal jalan tol', 'Jalan rusak'],
         correctAnswerIndex: 1,
         difficulty: 'mudah',
-    },
-    {
-        question: '[ID] Rambu segitiga terbalik bingkai merah artinya?',
-        options: ['Jalan Menurun', 'Beri Jalan (Yield)', 'Bahaya', 'Berhenti'],
-        correctAnswerIndex: 1,
-        difficulty: 'menengah',
-    },
-    {
-        question: '[ID] Tanda larangan parkir (huruf P dicoret) artinya?',
-        options: ['Boleh berhenti sebentar', 'Dilarang parkir', 'Dilarang berhenti sama sekali', 'Parkir paralel wajib'],
-        correctAnswerIndex: 1,
-        difficulty: 'menengah',
     },
 ];
 // Jerman

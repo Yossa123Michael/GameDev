@@ -1,7 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { SettingsManager, clamp01 } from '../lib/Settings';
 import type { Settings } from '../lib/Settings';
-import { formatVersionLabel } from '../versions';
+import { formatVersionLabel } from '../version';
 import { showVersionPicker } from '../ui/VersionPicker';
 
 export class OptionScene extends BaseScene {

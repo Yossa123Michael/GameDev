@@ -1,7 +1,7 @@
 export type GraphicsQuality = 'normal' | 'low';
 export type LanguageCode = 'en' | 'id';
 
-import { VersionCode, normalizeVersion } from '../versions';
+import { VersionCode, normalizeVersion } from '../version';
 
 export type Settings = {
   musicOn: boolean;
