@@ -1,5 +1,8 @@
 import type { Question } from './questions';
 
+export type { VersionCode } from './version';
+
+export { getQuestionsForVersion } from './questions';
 // Kode versi (negara)
 export type VersionCode = 'global' | 'id' | 'de' | 'jp';
 
@@ -79,6 +82,12 @@ const bankJP: Question[] = [
     difficulty: 'mudah',
   },
 ];
+
+export {
+  normalizeVersion,
+  versionsOrder,
+  versionLabels,
+} from './version';
 
 // Urutan versi yang ditampilkan di picker
 export const versionsOrder: VersionCode[] = ['global', 'id', 'de', 'jp'];
