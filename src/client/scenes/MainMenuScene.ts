@@ -1,4 +1,5 @@
 import { BaseScene } from './BaseScene';
+import { t } from '../lib/i18n';
 
 export class MainMenuScene extends BaseScene {
   constructor() {
@@ -54,4 +55,21 @@ export class MainMenuScene extends BaseScene {
 
     this.sceneContentGroup.addMultiple([startButton, leaderboardButton, achievementButton, optionButton, creditButton]);
   }
+
+private relabel() {
+    this.titleText?.setText(t('MainMenuTitle'));
+    for (const g of this.groups) {
+      g.label.setText(t(g.key as any));
+    }
+  }
+
+  public override create() {
+  super.create();
+  // build UI
+  this.relabel();
+  this.game.events.on('lang:changed', this.relabel, this);
+  this.events.once('shutdown', () => {
+    this.game.events.off('lang:changed', this.relabel, this);
+  });
+}
 }

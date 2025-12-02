@@ -4,28 +4,96 @@ type Dict = Record<string, string>;
 
 const dicts: Record<LangKey, Dict> = {
   id: {
-    leaderboardTitle: 'Leaderboard',
+    optionsTitle: 'Opsi',
+    music: 'Musik',
+    sfx: 'SFX',
+    on: 'Nyala',
+    off: 'Mati',
+    musicVolume: 'Volume Musik',
+    sfxVolume: 'Volume SFX',
+    language: 'Bahasa',
+    indonesian: 'Indonesia',
+    english: 'Inggris',
+    vibration: 'Getar',
+    version: 'Versi',
+    prev: 'Sebelum',
+    next: 'Berikut',
+    change: 'Ubah',
+    resetLocal: 'Reset Progres (Lokal)',
+    animation: 'Animasi',
+
+    // Leaderboard (title/header akan dihapus, tapi tetap disediakan bila ingin pakai kembali)
+    leaderboardTitle: 'Papan Skor',
     headerRank: 'Peringkat',
     headerName: 'Nama',
-    headerScore: 'Skor Tertinggi',
-    you: 'Anda',
-    noData: 'Tidak ada data',
-    mainMenu: 'Menu Utama',
-    language: 'Bahasa',
-    english: 'Inggris',
-    indonesian: 'Indonesia',
+    headerScore: 'Skor',
+
+    // Achievement
+    achievementTitle: 'Pencapaian',
+    achievementSectionStart: 'Memulai',
+    achievementSectionScore: 'Skor',
+    achievementSectionCombo: 'Kombo',
+    achievementSectionCollect: 'Koleksi',
+
+    // Credit
+    creditTitle: 'Kredit',
+    creditCreator: 'Pembuat',
+    creditVisualArtist: 'Seniman Visual',
+    creditSoundArtist: 'Seniman Suara',
+    creditFont: 'Font',
+
+    // Main Menu & Mode (contoh)
+    mainPlay: 'Main',
+    mainOptions: 'Opsi',
+    mainLeaderboard: 'Papan Skor',
+    mainAchievement: 'Pencapaian',
+    mainQuit: 'Keluar',
+    chooseModeTitle: 'Pilih Mode',
+    chooseDifficultyTitle: 'Pilih Kesulitan',
   },
   en: {
+    optionsTitle: 'Options',
+    music: 'Music',
+    sfx: 'SFX',
+    on: 'On',
+    off: 'Off',
+    musicVolume: 'Music Volume',
+    sfxVolume: 'SFX Volume',
+    language: 'Language',
+    indonesian: 'Indonesian',
+    english: 'English',
+    vibration: 'Vibration',
+    version: 'Version',
+    prev: 'Prev',
+    next: 'Next',
+    change: 'Change',
+    resetLocal: 'Reset Progress (Local)',
+    animation: 'Animation',
+
     leaderboardTitle: 'Leaderboard',
     headerRank: 'Rank',
     headerName: 'Name',
-    headerScore: 'High Score',
-    you: 'You',
-    noData: 'No data',
-    mainMenu: 'Main Menu',
-    language: 'Language',
-    english: 'English',
-    indonesian: 'Indonesian',
+    headerScore: 'Score',
+
+    achievementTitle: 'Achievement',
+    achievementSectionStart: 'Start',
+    achievementSectionScore: 'Score',
+    achievementSectionCombo: 'Combo',
+    achievementSectionCollect: 'Collection',
+
+    creditTitle: 'Credit',
+    creditCreator: 'Creator',
+    creditVisualArtist: 'Visual Artist',
+    creditSoundArtist: 'Sound Artist',
+    creditFont: 'Font',
+
+    mainPlay: 'Play',
+    mainOptions: 'Options',
+    mainLeaderboard: 'Leaderboard',
+    mainAchievement: 'Achievement',
+    mainQuit: 'Quit',
+    chooseModeTitle: 'Choose Mode',
+    chooseDifficultyTitle: 'Choose Difficulty',
   },
 };
 
@@ -55,4 +123,9 @@ export function t(key: keyof typeof dicts['id']): string {
 
 export function nextLang(): LangKey {
   return currentLang === 'id' ? 'en' : 'id';
+}
+
+// Event helper (opsional): panggil setelah setLang
+export function emitLanguageChanged(scene: Phaser.Scene) {
+  scene.game.events.emit('lang:changed', getLang());
 }

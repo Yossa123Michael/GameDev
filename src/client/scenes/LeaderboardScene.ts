@@ -11,7 +11,6 @@ function getDeviceBest(): number | null {
   try { const raw = localStorage.getItem('rk:best'); return raw ? Number(raw) : null; } catch { return null; }
 }
 
-// Warna medal
 const GOLD_FILL   = 0xFFD700;
 const GOLD_STROKE = 0xB8860B;
 const SILVER_FILL   = 0xC0C0C0;
@@ -20,50 +19,37 @@ const BRONZE_FILL   = 0xCD7F32;
 const BRONZE_STROKE = 0x8B4513;
 
 export class LeaderboardScene extends BaseScene {
-  // Data
   private entries: Entry[] = [];
   private myBest: UserBest | null = null;
-  // private _currentUserId: string | null = null; // dihapus karena tidak dipakai
   private lastSub: LastSub | null = null;
   private deviceBest: number | null = null;
   private inTop100Index: number | null = null;
 
-  // UI references
-  private titleText?: Phaser.GameObjects.Text;
-  private headerRow?: Phaser.GameObjects.Container;
-  private userFixedRow?: Phaser.GameObjects.Container;
   private listContainer?: Phaser.GameObjects.Container;
   private maskGraphics?: Phaser.GameObjects.Graphics;
   private scrollSurface?: Phaser.GameObjects.Rectangle;
+  private userFixedRow?: Phaser.GameObjects.Container;
   private statusText?: Phaser.GameObjects.Text;
 
-  // State
   private alive = true;
   private scrollY = 0;
   private contentHeight = 0;
 
-  // Drag
   private dragActive = false;
   private dragStartY = 0;
   private dragBaseScroll = 0;
 
-  // Debounce rebuild
   private pendingRebuild = false;
 
-  // Layout constants
-  private readonly TITLE_Y = 80;
   private readonly ROW_HEIGHT = 60;
   private readonly ROW_GAP = 20;
-  private readonly GAP_TITLE_HEADER = 54;
-  private readonly GAP_HEADER_LIST = 30;
   private readonly GAP_LIST_START = 30;
   private readonly USER_BOTTOM_MARGIN = 30;
   private readonly STROKE_W = 3;
 
-  // Computed metrics
+  // Removed title/header constants → adjust scroll origin
   private buttonWidth = 0;
   private buttonLeft = 0;
-  private headerCenterY = 0;
   private scrollTopY = 0;
   private scrollHeight = 0;
   private userBottomCenterY = 0;
@@ -75,17 +61,25 @@ export class LeaderboardScene extends BaseScene {
     super.create();
     this.createCommonButtons('MainMenuScene');
 
-    this.showStatus('Loading leaderboard...');
+    this.showStatus('Loading...');
     await this.loadDataFast();
     if (!this.scene.isActive()) return;
 
     this.computeMetrics();
     this.fullRebuild();
-    this.time.delayedCall(50, () => { if (this.alive) this.fullRebuild(); });
+    this.time.delayedCall(60, () => { if (this.alive) this.fullRebuild(); });
     this.computeRankInBackground();
+
+    // Listen language change to relabel user row & list (names unaffected, but placeholders could)
+    this.game.events.on('lang:changed', this.onLangChanged, this);
 
     this.events.once('shutdown', () => { this.alive = false; this.cleanup(); });
     this.events.once('destroy',  () => { this.alive = false; this.cleanup(); });
+  }
+
+  private onLangChanged() {
+    // If you ever reintroduce header or title with t(), rebuild
+    this.fullRebuild(this.getScrollRatio());
   }
 
   public override draw() {
@@ -105,8 +99,11 @@ export class LeaderboardScene extends BaseScene {
     this.buttonWidth = Math.round(this.scale.width * 0.86);
     this.buttonLeft = Math.round((this.scale.width - this.buttonWidth) / 2);
     this.radius = Math.min(24, Math.floor(this.ROW_HEIGHT * 0.35));
-    this.headerCenterY = this.TITLE_Y + this.GAP_TITLE_HEADER + this.ROW_HEIGHT / 2;
-    this.scrollTopY = this.headerCenterY + this.ROW_HEIGHT / 2 + this.GAP_HEADER_LIST;
+
+    // Scroll top now near top (just under back button)
+    const topPad = Math.round(this.scale.height * 0.12); // space for back button + safety
+    this.scrollTopY = topPad;
+
     this.userBottomCenterY = this.scale.height - this.USER_BOTTOM_MARGIN - this.ROW_HEIGHT / 2;
 
     const reservedBottom = (this.scale.height - this.userBottomCenterY) + this.ROW_HEIGHT / 2 + 16;
@@ -117,7 +114,6 @@ export class LeaderboardScene extends BaseScene {
   private async loadDataFast() {
     this.entries = [];
     this.myBest = null;
-    // this._currentUserId = null;
     this.inTop100Index = null;
     this.lastSub = getLastSubmission();
     this.deviceBest = getDeviceBest();
@@ -147,7 +143,6 @@ export class LeaderboardScene extends BaseScene {
     this.entries = unique;
 
     const uid = (authRes.data as any)?.user?.id ?? null;
-    // this._currentUserId = uid;
 
     if (uid) {
       const idx = this.entries.findIndex(en => en.user_id === uid);
@@ -163,12 +158,12 @@ export class LeaderboardScene extends BaseScene {
       if (idx2 >= 0) {
         this.inTop100Index = idx2;
         const en = this.entries[idx2]!;
-        this.myBest = { name: en.name || this.lastSub?.name || t('you'), score: en.score, created_at: en.created_at };
+        this.myBest = { name: en.name || this.lastSub?.name || 'You', score: en.score, created_at: en.created_at };
       }
     }
 
     if (!this.myBest && this.deviceBest != null) {
-      this.myBest = { name: this.lastSub?.name || t('you'), score: this.deviceBest, created_at: '' };
+      this.myBest = { name: this.lastSub?.name || 'You', score: this.deviceBest, created_at: '' };
     }
 
     this.showStatus(null);
@@ -197,16 +192,12 @@ export class LeaderboardScene extends BaseScene {
   }
 
   private fullRebuild(preserveRatio?: number) {
-    try { this.titleText?.destroy(); } catch {}
-    try { this.headerRow?.destroy(); } catch {}
     try { this.userFixedRow?.destroy(); } catch {}
     try { this.listContainer?.destroy(true); } catch {}
     try { this.maskGraphics?.destroy(); } catch {}
     try { this.scrollSurface?.destroy(); } catch {}
 
-    this.buildTitle();
-    this.buildHeader();
-    this.rebuildUserRow();
+    this.rebuildUserRow();  // build user box bottom
     this.buildScrollArea();
     this.renderList();
 
@@ -214,31 +205,14 @@ export class LeaderboardScene extends BaseScene {
     this.layoutAll();
   }
 
-  private buildTitle() {
-    this.titleText = this.add.text(this.centerX, this.TITLE_Y, t('leaderboardTitle'), {
-      fontFamily: 'Nunito',
-      fontSize: '36px',
-      color: '#000'
-    }).setOrigin(0.5).setDepth(50);
-  }
-
-  private buildHeader() {
-    this.headerRow = this.buildBox(this.headerCenterY, {
-      rank: t('headerRank'),
-      name: t('headerName'),
-      score: t('headerScore'),
-    }, true, false);
-    this.headerRow.setDepth(45);
-  }
-
   private rebuildUserRow() {
     const y = this.userBottomCenterY;
     let rankText = '-';
-    let nameText = t('you');
+    let nameText = 'You';
     let scoreText = '-';
     if (this.myBest) {
       rankText = this.myBest.rank && this.myBest.rank <= 10000 ? `${this.myBest.rank}.` : '-';
-      nameText = this.myBest.name || t('you');
+      nameText = this.myBest.name || 'You';
       scoreText = `${this.myBest.score}`;
     }
     this.userFixedRow = this.buildBox(y, { rank: rankText, name: nameText, score: scoreText }, false, true);
@@ -249,18 +223,17 @@ export class LeaderboardScene extends BaseScene {
     this.listContainer = this.add.container(0, this.scrollTopY).setDepth(30);
 
     this.maskGraphics = this.add.graphics().setDepth(29);
-    const mask = this.maskGraphics.createGeometryMask();
-    this.listContainer.setMask(mask);
     this.drawMask();
     this.maskGraphics.setVisible(false);
+    const mask = this.maskGraphics.createGeometryMask();
+    this.listContainer.setMask(mask);
 
     this.scrollSurface = this.add.rectangle(
       this.buttonLeft + this.buttonWidth / 2,
       this.scrollTopY + this.scrollHeight / 2,
       this.buttonWidth,
       this.scrollHeight,
-      0x000000,
-      0
+      0x000000, 0
     ).setDepth(28);
     this.scrollSurface.setInteractive({ useHandCursor: true });
 
@@ -276,14 +249,13 @@ export class LeaderboardScene extends BaseScene {
       this.clampScroll();
       this.layoutScroll();
     });
-    this.input.on(Phaser.Input.Events.POINTER_UP,   () => { this.dragActive = false; });
-    this.input.on(Phaser.Input.Events.GAME_OUT,     () => { this.dragActive = false; });
+    const stopDrag = () => { this.dragActive = false; };
+    this.input.on(Phaser.Input.Events.POINTER_UP, stopDrag);
+    this.input.on(Phaser.Input.Events.GAME_OUT, stopDrag);
 
-    this.input.on('wheel',
-      (_pointer: Phaser.Input.Pointer, _gos: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
-        this.applyScroll(dy * 0.6);
-      }
-    );
+    this.input.on('wheel', (_p, _gos, _dx, dy) => {
+      this.applyScroll(dy * 0.6);
+    });
   }
 
   private drawMask() {
@@ -306,7 +278,7 @@ export class LeaderboardScene extends BaseScene {
     let yLocal = this.ROW_HEIGHT / 2 + this.GAP_LIST_START;
 
     if (!this.entries.length) {
-      const noData = this.buildBoxLocal(yLocal, { rank: '-', name: t('noData'), score: '-' }, false, false);
+      const noData = this.buildBoxLocal(yLocal, { rank: '-', name: 'No data', score: '-' }, false, false);
       this.listContainer.add(noData);
       this.contentHeight = this.ROW_HEIGHT + this.GAP_LIST_START;
       this.clampScroll();
@@ -331,7 +303,6 @@ export class LeaderboardScene extends BaseScene {
     const c = this.add.container(this.centerX, yCenterWorld);
     return this.initBoxGraphics(c, data, isHeader, isUser);
   }
-
   private buildBoxLocal(yCenterLocal: number, data: { rank: string; name: string; score: string }, isHeader: boolean, isUser: boolean) {
     const c = this.add.container(this.centerX, yCenterLocal);
     return this.initBoxGraphics(c, data, isHeader, isUser);
@@ -390,16 +361,12 @@ export class LeaderboardScene extends BaseScene {
   }
 
   private layoutAll() {
-    this.titleText?.setPosition(this.centerX, this.TITLE_Y);
-    this.headerRow?.setPosition(this.centerX, this.headerCenterY);
     this.userFixedRow?.setPosition(this.centerX, this.userBottomCenterY);
-
     this.drawMask();
     this.scrollSurface?.setPosition(
       this.buttonLeft + this.buttonWidth / 2,
       this.scrollTopY + this.scrollHeight / 2
     ).setSize(this.buttonWidth, this.scrollHeight);
-
     this.layoutScroll();
   }
 
@@ -442,5 +409,6 @@ export class LeaderboardScene extends BaseScene {
     try { this.input.off(Phaser.Input.Events.POINTER_MOVE); } catch {}
     try { this.input.off(Phaser.Input.Events.POINTER_UP); } catch {}
     try { this.input.off(Phaser.Input.Events.GAME_OUT); } catch {}
+    this.game.events.off('lang:changed', this.onLangChanged, this);
   }
 }
