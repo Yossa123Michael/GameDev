@@ -21,8 +21,25 @@ class BootScene extends Phaser.Scene {
   async create() {
     (window as any).WebFont.load({
       google: { families: ['Nunito:700'] },
-      active: async () => { await ensureAnonAuth(); this.scene.start('MainMenuScene'); },
-      inactive: async () => { await ensureAnonAuth(); this.scene.start('MainMenuScene'); }
+      active: async () => {
+        await ensureAnonAuth();
+
+        // DEBUG: Tampilkan daftar scene keys yang terdaftar sebelum mulai
+        const mgr: any = this.game.scene;
+        const keys = mgr?.keys ? Object.keys(mgr.keys) : [];
+        console.log('Scene keys terdaftar (active):', keys);
+
+        this.scene.start('MainMenuScene');
+      },
+      inactive: async () => {
+        await ensureAnonAuth();
+
+        const mgr: any = this.game.scene;
+        const keys = mgr?.keys ? Object.keys(mgr.keys) : [];
+        console.log('Scene keys terdaftar (inactive):', keys);
+
+        this.scene.start('MainMenuScene');
+      }
     });
   }
 }
@@ -56,4 +73,10 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-new Phaser.Game(config);
+// HMR-safe singleton game instance
+declare global {
+  interface Window { __RK_GAME?: Phaser.Game }
+}
+if (!window.__RK_GAME) {
+  window.__RK_GAME = new Phaser.Game(config);
+}
