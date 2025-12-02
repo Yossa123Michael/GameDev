@@ -1,4 +1,4 @@
-import { versionsOrder, versionLabels } from '../versions';
+import { versionsOrder, versionLabels } from '../version';
 // Popup sederhana untuk memilih versi.
 export function showVersionPicker(scene, onPick) {
     const { width, height } = scene.scale;
