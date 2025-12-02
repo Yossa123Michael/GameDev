@@ -1,6 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { supabase } from '../lib/supabaseClient';
 import { getLastSubmission } from '../lib/submitScore';
+import { t } from '../lib/i18n';
 
 type Entry = { id?: number; name: string; score: number; created_at: string; user_id?: string };
 type UserBest = { name: string; score: number; created_at: string; rank?: number };
@@ -24,6 +25,9 @@ export class LeaderboardScene extends BaseScene {
   private deviceBest: number | null = null;
   private inTop100Index: number | null = null;
 
+  private titleText?: Phaser.GameObjects.Text;
+  private headerRow?: Phaser.GameObjects.Container;
+
   private listContainer?: Phaser.GameObjects.Container;
   private maskGraphics?: Phaser.GameObjects.Graphics;
   private scrollSurface?: Phaser.GameObjects.Rectangle;
@@ -40,14 +44,18 @@ export class LeaderboardScene extends BaseScene {
 
   private pendingRebuild = false;
 
+  private readonly TITLE_Y = 90;
   private readonly ROW_HEIGHT = 60;
   private readonly ROW_GAP = 20;
+  private readonly GAP_TITLE_HEADER = 54;
+  private readonly GAP_HEADER_LIST = 30;
   private readonly GAP_LIST_START = 30;
   private readonly USER_BOTTOM_MARGIN = 30;
   private readonly STROKE_W = 3;
 
   private buttonWidth = 0;
   private buttonLeft = 0;
+  private headerCenterY = 0;
   private scrollTopY = 0;
   private scrollHeight = 0;
   private userBottomCenterY = 0;
@@ -68,8 +76,15 @@ export class LeaderboardScene extends BaseScene {
     this.time.delayedCall(60, () => { if (this.alive) this.fullRebuild(); });
     this.computeRankInBackground();
 
+    this.game.events.on('lang:changed', this.fullRelabel, this);
+
     this.events.once('shutdown', () => { this.alive = false; this.cleanup(); });
     this.events.once('destroy',  () => { this.alive = false; this.cleanup(); });
+  }
+
+  private fullRelabel() {
+    // Rebuild to refresh header labels
+    this.fullRebuild(this.getScrollRatio());
   }
 
   public override draw() {
@@ -90,10 +105,10 @@ export class LeaderboardScene extends BaseScene {
     this.buttonLeft = Math.round((this.scale.width - this.buttonWidth) / 2);
     this.radius = Math.min(24, Math.floor(this.ROW_HEIGHT * 0.35));
 
-    const topPad = Math.round(this.scale.height * 0.12);
-    this.scrollTopY = topPad;
-
+    this.headerCenterY = this.TITLE_Y + this.GAP_TITLE_HEADER + this.ROW_HEIGHT / 2;
     this.userBottomCenterY = this.scale.height - this.USER_BOTTOM_MARGIN - this.ROW_HEIGHT / 2;
+
+    this.scrollTopY = this.headerCenterY + this.ROW_HEIGHT / 2 + this.GAP_HEADER_LIST;
 
     const reservedBottom = (this.scale.height - this.userBottomCenterY) + this.ROW_HEIGHT / 2 + 16;
     const available = this.scale.height - this.scrollTopY - reservedBottom;
@@ -147,12 +162,12 @@ export class LeaderboardScene extends BaseScene {
       if (idx2 >= 0) {
         this.inTop100Index = idx2;
         const en = this.entries[idx2]!;
-        this.myBest = { name: en.name || this.lastSub?.name || 'You', score: en.score, created_at: en.created_at };
+        this.myBest = { name: en.name || this.lastSub?.name || t('you'), score: en.score, created_at: en.created_at };
       }
     }
 
     if (!this.myBest && this.deviceBest != null) {
-      this.myBest = { name: this.lastSub?.name || 'You', score: this.deviceBest, created_at: '' };
+      this.myBest = { name: this.lastSub?.name || t('you'), score: this.deviceBest, created_at: '' };
     }
 
     this.showStatus(null);
@@ -181,10 +196,25 @@ export class LeaderboardScene extends BaseScene {
   }
 
   private fullRebuild(preserveRatio?: number) {
+    try { this.titleText?.destroy(); } catch {}
+    try { this.headerRow?.destroy(); } catch {}
     try { this.userFixedRow?.destroy(); } catch {}
     try { this.listContainer?.destroy(true); } catch {}
     try { this.maskGraphics?.destroy(); } catch {}
     try { this.scrollSurface?.destroy(); } catch {}
+
+    // Title
+    this.titleText = this.add.text(this.centerX, this.TITLE_Y, t('leaderboardTitle'), {
+      fontFamily: 'Nunito', fontSize: '36px', color: '#000'
+    }).setOrigin(0.5).setDepth(50);
+
+    // Header
+    this.headerRow = this.buildBox(this.headerCenterY, {
+      rank: t('headerRank'),
+      name: t('headerName'),
+      score: t('headerScore'),
+    }, true, false);
+    this.headerRow.setDepth(45);
 
     this.rebuildUserRow();
     this.buildScrollArea();
@@ -197,11 +227,11 @@ export class LeaderboardScene extends BaseScene {
   private rebuildUserRow() {
     const y = this.userBottomCenterY;
     let rankText = '-';
-    let nameText = 'You';
+    let nameText = t('you');
     let scoreText = '-';
     if (this.myBest) {
       rankText = this.myBest.rank && this.myBest.rank <= 10000 ? `${this.myBest.rank}.` : '-';
-      nameText = this.myBest.name || 'You';
+      nameText = this.myBest.name || t('you');
       scoreText = `${this.myBest.score}`;
     }
     this.userFixedRow = this.buildBox(y, { rank: rankText, name: nameText, score: scoreText }, false, true);
@@ -212,17 +242,18 @@ export class LeaderboardScene extends BaseScene {
     this.listContainer = this.add.container(0, this.scrollTopY).setDepth(30);
 
     this.maskGraphics = this.add.graphics().setDepth(29);
-    this.drawMask();
-    this.maskGraphics.setVisible(false);
     const mask = this.maskGraphics.createGeometryMask();
     this.listContainer.setMask(mask);
+    this.drawMask();
+    this.maskGraphics.setVisible(false);
 
     this.scrollSurface = this.add.rectangle(
       this.buttonLeft + this.buttonWidth / 2,
       this.scrollTopY + this.scrollHeight / 2,
       this.buttonWidth,
       this.scrollHeight,
-      0x000000, 0
+      0x000000,
+      0
     ).setDepth(28);
     this.scrollSurface.setInteractive({ useHandCursor: true });
 
@@ -242,9 +273,18 @@ export class LeaderboardScene extends BaseScene {
     this.input.on(Phaser.Input.Events.POINTER_UP, stopDrag);
     this.input.on(Phaser.Input.Events.GAME_OUT, stopDrag);
 
-    this.input.on('wheel', (_p, _gos, _dx, dy) => {
-      this.applyScroll(dy * 0.6);
-    });
+    // Typed wheel handler
+    this.input.on(
+      'wheel',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _gos: Phaser.GameObjects.GameObject[],
+        _dx: number,
+        dy: number
+      ) => {
+        this.applyScroll(dy * 0.6);
+      }
+    );
   }
 
   private drawMask() {
@@ -267,7 +307,7 @@ export class LeaderboardScene extends BaseScene {
     let yLocal = this.ROW_HEIGHT / 2 + this.GAP_LIST_START;
 
     if (!this.entries.length) {
-      const noData = this.buildBoxLocal(yLocal, { rank: '-', name: 'No data', score: '-' }, false, false);
+      const noData = this.buildBoxLocal(yLocal, { rank: '-', name: t('noData'), score: '-' }, false, false);
       this.listContainer.add(noData);
       this.contentHeight = this.ROW_HEIGHT + this.GAP_LIST_START;
       this.clampScroll();
@@ -350,6 +390,8 @@ export class LeaderboardScene extends BaseScene {
   }
 
   private layoutAll() {
+    this.titleText?.setPosition(this.centerX, this.TITLE_Y);
+    this.headerRow?.setPosition(this.centerX, this.headerCenterY);
     this.userFixedRow?.setPosition(this.centerX, this.userBottomCenterY);
     this.drawMask();
     this.scrollSurface?.setPosition(
@@ -398,5 +440,6 @@ export class LeaderboardScene extends BaseScene {
     try { this.input.off(Phaser.Input.Events.POINTER_MOVE); } catch {}
     try { this.input.off(Phaser.Input.Events.POINTER_UP); } catch {}
     try { this.input.off(Phaser.Input.Events.GAME_OUT); } catch {}
+    try { this.game.events.off('lang:changed', this.fullRelabel, this); } catch {}
   }
 }

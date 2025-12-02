@@ -1,7 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { SettingsManager, clamp01 } from '../lib/Settings';
 import type { Settings } from '../lib/Settings';
-import { formatVersionLabel, versionsOrder, type VersionCode } from '../version';
+import { formatVersionLabel, versionsOrder, type VersionCode, normalizeVersion } from '../version';
 import { showVersionPicker } from '../ui/VersionPicker';
 import { t, getLang, setLang, emitLanguageChanged } from '../lib/i18n';
 
@@ -44,7 +44,6 @@ export class OptionScene extends BaseScene {
   private TITLE_Y = 90;
   private STROKE_W = 3;
 
-  private ROW_GAP = 24;
   private GAP_AFTER_MUSIC_TOGGLE = 96;
   private GAP_AFTER_SFX_TOGGLE = 108;
   private LIST_TOP_PAD = 28;
@@ -65,6 +64,12 @@ export class OptionScene extends BaseScene {
   public override create() {
     super.create();
     super.createCommonButtons('MainMenuScene');
+
+    // Ensure Settings.version is a VersionCode at runtime too
+    if (this.opts.version !== normalizeVersion(this.opts.version)) {
+      SettingsManager.save({ version: normalizeVersion(this.opts.version) });
+      this.opts = SettingsManager.get();
+    }
 
     this.optsUnsub = SettingsManager.subscribe((s) => {
       this.opts = s;
@@ -117,7 +122,6 @@ export class OptionScene extends BaseScene {
 
     const sMin = Math.min(this.scale.width, this.scale.height);
     const compact = sMin < 600;
-    this.ROW_GAP = compact ? 22 : 24;
     this.GAP_AFTER_MUSIC_TOGGLE = compact ? 88 : 96;
     this.GAP_AFTER_SFX_TOGGLE = compact ? 100 : 108;
     this.LIST_TOP_PAD = compact ? 26 : 28;
@@ -338,7 +342,7 @@ export class OptionScene extends BaseScene {
 
     this.versionPrevBtn = this.createSmallButton(0, t('prev'), () => {
       const next = this.cycleVersion(-1);
-      SettingsManager.save({ version: next });
+      SettingsManager.save({ version: next }); // next is VersionCode
       this.versionRowLabel?.setText(`${t('version')}: ${formatVersionLabel(this.opts.version)}`);
       this.playSound('sfx_click', { volume: 0.7 });
     });
@@ -413,17 +417,18 @@ export class OptionScene extends BaseScene {
 
   private openVersionPicker() {
     this.playSound('sfx_click', { volume: 0.9 });
-    showVersionPicker(this, (picked) => {
-      SettingsManager.save({ version: picked });
+    showVersionPicker(this, (picked: VersionCode) => {
+      SettingsManager.save({ version: picked });     // picked is VersionCode
       this.versionRowLabel?.setText(`${t('version')}: ${formatVersionLabel(this.opts.version)}`);
     });
   }
 
   private cycleVersion(dir: -1 | 1): VersionCode {
     const order = versionsOrder;
-    const current = this.opts.version;
-    const idx = Math.max(0, order.indexOf(current));
-    const nextIdx = (idx + (dir === 1 ? 1 : order.length - 1)) % order.length;
+    const current = normalizeVersion(this.opts.version);
+    const idx = order.indexOf(current);
+    const safeIdx = idx >= 0 ? idx : 0;
+    const nextIdx = (safeIdx + (dir === 1 ? 1 : order.length - 1)) % order.length;
     return order[nextIdx];
   }
 
