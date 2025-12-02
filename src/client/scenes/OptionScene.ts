@@ -1,8 +1,9 @@
 import { BaseScene } from './BaseScene';
 import { SettingsManager, clamp01 } from '../lib/Settings';
 import type { Settings } from '../lib/Settings';
-import { formatVersionLabel } from '../version';
+import { formatVersionLabel, versionsOrder, type VersionCode } from '../version';
 import { showVersionPicker } from '../ui/VersionPicker';
+import { t, getLang, setLang } from '../lib/i18n';
 
 export class OptionScene extends BaseScene {
   private title?: Phaser.GameObjects.Text;
@@ -16,18 +17,29 @@ export class OptionScene extends BaseScene {
   private qualityNormal?: Phaser.GameObjects.Container;
   private qualityLow?: Phaser.GameObjects.Container;
 
-  private langText?: Phaser.GameObjects.Text;
+  // Bahasa (tombol)
+  private langRowLabel?: Phaser.GameObjects.Text;
+  private langIdBtn?: Phaser.GameObjects.Container;
+  private langEnBtn?: Phaser.GameObjects.Container;
 
   private vibrateToggle?: Phaser.GameObjects.Container;
+
+  // Versi (tombol)
+  private versionRowLabel?: Phaser.GameObjects.Text;
+  private versionPrevBtn?: Phaser.GameObjects.Container;
+  private versionPickBtn?: Phaser.GameObjects.Container;
+  private versionNextBtn?: Phaser.GameObjects.Container;
 
   private resetBtn?: Phaser.GameObjects.Container;
   private confirmBox?: Phaser.GameObjects.Container;
 
-  private versionText?: Phaser.GameObjects.Text;
-  private versionZone?: Phaser.GameObjects.Zone; // zona klik selebar baris
-
   private opts: Settings = SettingsManager.get();
   private optsUnsub?: () => void;
+
+  // Spacing constants
+  private readonly LINE_H_MIN = 52;
+  private readonly GAP_AFTER_MUSIC_TOGGLE = 90; // perlebar jarak Music -> SFX
+  private readonly GAP_AFTER_SFX_TOGGLE = 100;
 
   constructor() {
     super('OptionScene');
@@ -42,7 +54,7 @@ export class OptionScene extends BaseScene {
       this.opts = s;
       try { this.updateToggleLabel(this.musicToggle!, `Music: ${this.opts.musicOn ? 'On' : 'Off'}`); } catch {}
       try { this.updateToggleLabel(this.sfxToggle!,   `SFX: ${this.opts.sfxOn   ? 'On' : 'Off'}`); } catch {}
-      try { this.versionText?.setText(`Version: ${formatVersionLabel(this.opts.version)}`); } catch {}
+      try { this.versionRowLabel?.setText(`Version: ${formatVersionLabel(this.opts.version)}`); } catch {}
       try { this.applyOptions(this.opts); } catch {}
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -67,7 +79,7 @@ export class OptionScene extends BaseScene {
       this.applyOptions(this.opts);
     });
     if (this.musicToggle) this.sceneContentGroup.add(this.musicToggle);
-    y += 60;
+    y += this.GAP_AFTER_MUSIC_TOGGLE;
 
     // SFX toggle
     this.sfxToggle = this.createToggle(y, `SFX: ${this.opts.sfxOn ? 'On' : 'Off'}`, this.opts.sfxOn, (v) => {
@@ -76,7 +88,7 @@ export class OptionScene extends BaseScene {
       this.updateToggleLabel(this.sfxToggle!, `SFX: ${v ? 'On' : 'Off'}`);
     });
     if (this.sfxToggle) this.sceneContentGroup.add(this.sfxToggle);
-    y += 70;
+    y += this.GAP_AFTER_SFX_TOGGLE;
 
     // Music volume
     this.musicSlider = this.createSlider(y, 'Music Volume', this.opts.musicVol, (val) => {
@@ -117,16 +129,40 @@ export class OptionScene extends BaseScene {
     if (this.qualityNormal) this.sceneContentGroup.add(this.qualityNormal);
     if (this.qualityLow) this.sceneContentGroup.add(this.qualityLow);
     this.refreshQualityButtons();
-    y += 60;
+    y += 70;
 
-    // Language (EN) — placeholder
-    this.langText = this.add.text(this.centerX, y, 'Language: EN', {
+    // ===== Bahasa (dua tombol) =====
+    this.langRowLabel = this.add.text(this.centerX, y, 'Language', {
       fontFamily: 'Nunito', fontSize: '20px', color: '#555'
     }).setOrigin(0.5);
-    this.sceneContentGroup.add(this.langText);
-    y += 50;
+    this.sceneContentGroup.add(this.langRowLabel);
+    y += 40;
 
-    // Vibration
+    const langGap = 140;
+    this.langIdBtn = this.createSmallButton(y, 'Indonesia', () => {
+      setLang('id');
+      this.playSound('sfx_click', { volume: 0.7 });
+      // jika perlu refresh scene lain
+      this.scene.get('LeaderboardScene')?.events.emit('redraw-request');
+      this.markSegmented(this.langIdBtn!, true);
+      this.markSegmented(this.langEnBtn!, false);
+    });
+    this.langEnBtn = this.createSmallButton(y, 'English', () => {
+      setLang('en');
+      this.playSound('sfx_click', { volume: 0.7 });
+      this.scene.get('LeaderboardScene')?.events.emit('redraw-request');
+      this.markSegmented(this.langIdBtn!, false);
+      this.markSegmented(this.langEnBtn!, true);
+    });
+    if (this.langIdBtn) { this.sceneContentGroup.add(this.langIdBtn); this.langIdBtn.setPosition(this.centerX - langGap/2, y); }
+    if (this.langEnBtn) { this.sceneContentGroup.add(this.langEnBtn); this.langEnBtn.setPosition(this.centerX + langGap/2, y); }
+    // set state awal
+    const isId = getLang() === 'id';
+    this.markSegmented(this.langIdBtn!, isId);
+    this.markSegmented(this.langEnBtn!, !isId);
+    y += 80;
+
+    // ===== Vibration =====
     this.vibrateToggle = this.createToggle(y, `Vibration: ${this.opts.vibration ? 'On' : 'Off'}`, this.opts.vibration, (v) => {
       SettingsManager.save({ vibration: v });
       this.opts = SettingsManager.get();
@@ -134,56 +170,60 @@ export class OptionScene extends BaseScene {
       try { if (v && navigator.vibrate) navigator.vibrate(40); } catch {}
     });
     if (this.vibrateToggle) this.sceneContentGroup.add(this.vibrateToggle);
-    y += 70;
+    y += 80;
 
-    // Version row — teks + zona interaktif selebar baris (agar pasti bisa diklik)
-    this.versionText = this.add.text(this.centerX, y, `Version: ${formatVersionLabel(this.opts.version)}`, {
+    // ===== Versi (tiga tombol) =====
+    this.versionRowLabel = this.add.text(this.centerX, y, `Version: ${formatVersionLabel(this.opts.version)}`, {
       fontFamily: 'Nunito', fontSize: '20px', color: '#000'
     }).setOrigin(0.5).setDepth(10);
-    this.sceneContentGroup.add(this.versionText);
+    this.sceneContentGroup.add(this.versionRowLabel);
+    y += 40;
 
-    const rowW = Math.round(this.scale.width * 0.86);
-    const rowH = Math.max(48, Math.round(this.scale.height * 0.08));
-    this.versionZone = this.add.zone(this.centerX, y, rowW, rowH)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(9);
-
-    this.versionZone.on('pointerup', () => {
-      this.playSound('sfx_click', { volume: 0.9 });
-      showVersionPicker(this, (picked) => {
-        SettingsManager.save({ version: picked });
-        this.opts = SettingsManager.get();
-        this.versionText?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
-      });
+    const btnGap = 100;
+    this.versionPrevBtn = this.createSmallButton(y, 'Prev', () => {
+      const next = this.cycleVersion(-1);
+      SettingsManager.save({ version: next });
+      this.opts = SettingsManager.get();
+      this.versionRowLabel?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
+      this.playSound('sfx_click', { volume: 0.7 });
     });
-    this.sceneContentGroup.add(this.versionZone);
+    this.versionPickBtn = this.createSmallButton(y, 'Change', () => {
+      this.openVersionPicker();
+    });
+    this.versionNextBtn = this.createSmallButton(y, 'Next', () => {
+      const next = this.cycleVersion(1);
+      SettingsManager.save({ version: next });
+      this.opts = SettingsManager.get();
+      this.versionRowLabel?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
+      this.playSound('sfx_click', { volume: 0.7 });
+    });
 
-    y += 50;
+    if (this.versionPrevBtn) { this.sceneContentGroup.add(this.versionPrevBtn); this.versionPrevBtn.setPosition(this.centerX - btnGap, y); }
+    if (this.versionPickBtn) { this.sceneContentGroup.add(this.versionPickBtn); this.versionPickBtn.setPosition(this.centerX, y); }
+    if (this.versionNextBtn) { this.sceneContentGroup.add(this.versionNextBtn); this.versionNextBtn.setPosition(this.centerX + btnGap, y); }
+    y += 80;
 
-    // Reset Progress (Local)
+    // ===== Reset Progress =====
     this.resetBtn = this.createButton(y, 'Reset Progress (Local)', () => this.openConfirm());
     if (this.resetBtn) this.sceneContentGroup.add(this.resetBtn);
 
     // Pointer cursor util atas
     this.input.off(Phaser.Input.Events.POINTER_MOVE);
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (_pointer: Phaser.Input.Pointer) => {
-      let over = false;
-      this.input.setDefaultCursor(over ? 'pointer' : 'default');
+      this.input.setDefaultCursor('default');
     });
     this.input.on(Phaser.Input.Events.GAME_OUT, () => this.input.setDefaultCursor('default'));
   }
 
   public override draw() {
-    // Header & kontrol
     this.title?.setPosition(this.centerX, 90);
 
     const colX = this.centerX;
-    const lineH = Math.max(52, Math.round(this.scale.height * 0.06));
+    const lineH = Math.max(this.LINE_H_MIN, Math.round(this.scale.height * 0.06));
     let y = 150;
 
-    this.musicToggle?.setPosition(colX, y); y += lineH + 10;
-    this.sfxToggle?.setPosition(colX, y); y += lineH + 18;
+    this.musicToggle?.setPosition(colX, y); y += this.GAP_AFTER_MUSIC_TOGGLE;
+    this.sfxToggle?.setPosition(colX, y);   y += this.GAP_AFTER_SFX_TOGGLE;
 
     this.musicSlider?.setPosition(colX, y);
     this.updateSliderLayout(this.musicSlider, 'Music Volume', (this.opts?.musicVol ?? 1));
@@ -191,28 +231,56 @@ export class OptionScene extends BaseScene {
 
     this.sfxSlider?.setPosition(colX, y);
     this.updateSliderLayout(this.sfxSlider, 'SFX Volume', (this.opts?.sfxVol ?? 1));
-    y += lineH + 24;
+    y += lineH + 30;
 
-    const qY = y;
     const gap = 90;
-    this.qualityNormal?.setPosition(colX - gap / 2, qY);
-    this.qualityLow?.setPosition(colX + gap / 2, qY);
-    y += lineH + 18;
+    this.qualityNormal?.setPosition(colX - gap / 2, y);
+    this.qualityLow?.setPosition(colX + gap / 2, y);
+    y += lineH + 32;
 
-    this.langText?.setPosition(colX, y); y += lineH - 10;
-    this.vibrateToggle?.setPosition(colX, y); y += lineH + 10;
+    this.langRowLabel?.setPosition(colX, y); y += 40;
+    const langGap = 140;
+    this.langIdBtn?.setPosition(colX - langGap/2, y);
+    this.langEnBtn?.setPosition(colX + langGap/2, y);
+    y += lineH + 20;
 
-    // Version row layout
-    const rowW = Math.round(this.scale.width * 0.86);
-    const rowH = Math.max(48, Math.round(this.scale.height * 0.08));
-    this.versionText?.setPosition(colX, y).setDepth(10);
-    this.versionZone?.setPosition(colX, y).setSize(rowW, rowH).setDepth(9);
+    this.vibrateToggle?.setPosition(colX, y); y += lineH + 20;
 
-    y += lineH - 10;
+    this.versionRowLabel?.setPosition(colX, y); y += 40;
+    const btnGap = 100;
+    this.versionPrevBtn?.setPosition(colX - btnGap, y);
+    this.versionPickBtn?.setPosition(colX, y);
+    this.versionNextBtn?.setPosition(colX + btnGap, y);
+    y += lineH;
+
     this.resetBtn?.setPosition(colX, y);
   }
 
-  // ===== Helpers UI & Apply =====
+  // ===== Helpers =====
+
+  private markSegmented(btn: Phaser.GameObjects.Container, active: boolean) {
+    const w = (btn as any).width ?? 220;
+    const h = (btn as any).height ?? 40;
+    const g = btn.getAt(0) as Phaser.GameObjects.Graphics | undefined;
+    if (g) this.updateButtonGraphics(g, w, h, active ? 0xd4edda : 0xffffff, active ? 0x28a745 : 0x000000, 2);
+  }
+
+  private openVersionPicker() {
+    this.playSound('sfx_click', { volume: 0.9 });
+    showVersionPicker(this, (picked) => {
+      SettingsManager.save({ version: picked });
+      this.opts = SettingsManager.get();
+      this.versionRowLabel?.setText(`Version: ${formatVersionLabel(this.opts.version)}`);
+    });
+  }
+
+  private cycleVersion(dir: -1 | 1): VersionCode {
+    const order = versionsOrder;
+    const current = this.opts.version;
+    const idx = Math.max(0, order.indexOf(current));
+    const nextIdx = (idx + (dir === 1 ? 1 : order.length - 1)) % order.length;
+    return order[nextIdx];
+  }
 
   private createToggle(y: number, label: string, init: boolean, onChange: (v: boolean) => void) {
     let state = init;
@@ -349,7 +417,6 @@ export class OptionScene extends BaseScene {
     } catch {}
   }
 
-  // Perbarui ukuran track/knob saat resize
   private updateSliderLayout(cont: Phaser.GameObjects.Container | undefined, label: string, value01: number) {
     if (!cont) return;
     const trackW = Math.min(420, Math.round(this.scale.width * 0.8));

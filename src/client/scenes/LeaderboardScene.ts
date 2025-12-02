@@ -23,7 +23,7 @@ export class LeaderboardScene extends BaseScene {
   // Data
   private entries: Entry[] = [];
   private myBest: UserBest | null = null;
-  private _currentUserId: string | null = null;
+  // private _currentUserId: string | null = null; // dihapus karena tidak dipakai
   private lastSub: LastSub | null = null;
   private deviceBest: number | null = null;
   private inTop100Index: number | null = null;
@@ -117,7 +117,7 @@ export class LeaderboardScene extends BaseScene {
   private async loadDataFast() {
     this.entries = [];
     this.myBest = null;
-    this._currentUserId = null;
+    // this._currentUserId = null;
     this.inTop100Index = null;
     this.lastSub = getLastSubmission();
     this.deviceBest = getDeviceBest();
@@ -134,7 +134,6 @@ export class LeaderboardScene extends BaseScene {
 
     if (topRes.error) throw topRes.error;
 
-    // Dedup per user_id, ambil Top 100 unik
     const seen = new Set<string>();
     const unique: Entry[] = [];
     for (const e of (topRes.data || []) as Entry[]) {
@@ -148,7 +147,7 @@ export class LeaderboardScene extends BaseScene {
     this.entries = unique;
 
     const uid = (authRes.data as any)?.user?.id ?? null;
-    this._currentUserId = uid;
+    // this._currentUserId = uid;
 
     if (uid) {
       const idx = this.entries.findIndex(en => en.user_id === uid);
@@ -159,17 +158,15 @@ export class LeaderboardScene extends BaseScene {
       }
     }
 
-    // fallback: cocokkan deviceBest ke entri Top 100 jika ada
     if (this.inTop100Index == null && this.deviceBest != null) {
       const idx2 = this.entries.findIndex(en => en.score === this.deviceBest!);
       if (idx2 >= 0) {
         this.inTop100Index = idx2;
         const en = this.entries[idx2]!;
-        this.myBest = { name: en.name || (this.lastSub?.name ?? t('you')), score: en.score, created_at: en.created_at };
+        this.myBest = { name: en.name || this.lastSub?.name || t('you'), score: en.score, created_at: en.created_at };
       }
     }
 
-    // fallback terakhir: tampilkan deviceBest sebagai self row tanpa rank (nanti dihitung di background)
     if (!this.myBest && this.deviceBest != null) {
       this.myBest = { name: this.lastSub?.name || t('you'), score: this.deviceBest, created_at: '' };
     }
@@ -185,7 +182,7 @@ export class LeaderboardScene extends BaseScene {
       const q = await supabase.from('scores').select('id', { count: 'exact', head: true }).gt('score', this.myBest.score);
       const higher = q.count || 0;
       this.myBest.rank = higher + 1;
-      this.rebuildUserRow(); // update kotak hijau setelah rank diketahui
+      this.rebuildUserRow();
     } catch {}
   }
 
@@ -283,7 +280,7 @@ export class LeaderboardScene extends BaseScene {
     this.input.on(Phaser.Input.Events.GAME_OUT,     () => { this.dragActive = false; });
 
     this.input.on('wheel',
-      (pointer: Phaser.Input.Pointer, _gos: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+      (_pointer: Phaser.Input.Pointer, _gos: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
         this.applyScroll(dy * 0.6);
       }
     );
