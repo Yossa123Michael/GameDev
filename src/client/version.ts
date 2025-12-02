@@ -1,8 +1,6 @@
 import type { Question } from './questions';
+import { quizQuestions } from './questions';
 
-export type { VersionCode } from './version';
-
-export { getQuestionsForVersion } from './questions';
 // Kode versi (negara)
 export type VersionCode = 'global' | 'id' | 'de' | 'jp';
 
@@ -24,70 +22,22 @@ export function normalizeVersion(v: string | undefined | null): VersionCode {
   return 'global';
 }
 
-// Ambil bank soal global (existing)
-import { quizQuestions } from './questions';
-
 // Contoh bank regional (placeholder). Silakan lengkapi/ubah kontennya.
-
-// Indonesia
 const bankID: Question[] = [
-  {
-    question: '[ID] Rambu segi delapan merah bertuliskan "STOP" artinya?',
-    options: ['Beri Jalan', 'Berhenti', 'Dilarang Masuk', 'Hati-hati'],
-    correctAnswerIndex: 1,
-    difficulty: 'mudah',
-  },
-  {
-    question: '[ID] Rambu lingkaran merah dengan garis putih horizontal berlaku untuk?',
-    options: ['Semua kendaraan dari arah tersebut', 'Hanya mobil', 'Hanya motor', 'Hanya bus'],
-    correctAnswerIndex: 0,
-    difficulty: 'mudah',
-  },
-  {
-    question: '[ID] Marka "Zebra Cross" menandakan?',
-    options: ['Area parkir', 'Penyeberangan pejalan kaki', 'Awal jalan tol', 'Jalan rusak'],
-    correctAnswerIndex: 1,
-    difficulty: 'mudah',
-  },
+  { question: '[ID] Rambu segi delapan merah bertuliskan "STOP" artinya?', options: ['Beri Jalan', 'Berhenti', 'Dilarang Masuk', 'Hati-hati'], correctAnswerIndex: 1, difficulty: 'mudah' },
+  { question: '[ID] Rambu lingkaran merah dengan garis putih horizontal berlaku untuk?', options: ['Semua kendaraan dari arah tersebut', 'Hanya mobil', 'Hanya motor', 'Hanya bus'], correctAnswerIndex: 0, difficulty: 'mudah' },
+  { question: '[ID] Marka "Zebra Cross" menandakan?', options: ['Area parkir', 'Penyeberangan pejalan kaki', 'Awal jalan tol', 'Jalan rusak'], correctAnswerIndex: 1, difficulty: 'mudah' },
 ];
 
-// Jerman
 const bankDE: Question[] = [
-  {
-    question: '[DE] Apa arti rambu "Autobahn"?',
-    options: ['Jalan Tol', 'Zona 30', 'Area Pejalan Kaki', 'Larangan Parkir'],
-    correctAnswerIndex: 0,
-    difficulty: 'menengah',
-  },
-  {
-    question: '[DE] Rambu bundar biru panah lurus artinya?',
-    options: ['Wajib Lurus', 'Dilarang Lurus', 'Beri Jalan', 'Berhenti'],
-    correctAnswerIndex: 0,
-    difficulty: 'mudah',
-  },
+  { question: '[DE] Apa arti rambu "Autobahn"?', options: ['Jalan Tol', 'Zona 30', 'Area Pejalan Kaki', 'Larangan Parkir'], correctAnswerIndex: 0, difficulty: 'menengah' },
+  { question: '[DE] Rambu bundar biru panah lurus artinya?', options: ['Wajib Lurus', 'Dilarang Lurus', 'Beri Jalan', 'Berhenti'], correctAnswerIndex: 0, difficulty: 'mudah' },
 ];
 
-// Jepang
 const bankJP: Question[] = [
-  {
-    question: '[JP] Rambu segitiga terbalik merah di Jepang artinya?',
-    options: ['Beri Jalan', 'Berhenti Total', 'Dilarang Masuk', 'Zona Sekolah'],
-    correctAnswerIndex: 0,
-    difficulty: 'menengah',
-  },
-  {
-    question: '[JP] Lingkaran merah dengan angka kecepatan (contoh 40) artinya?',
-    options: ['Batas Kecepatan 40 km/j', 'Kecepatan Minimum 40', 'Zona 40 Meter', 'Jarak 40 m'],
-    correctAnswerIndex: 0,
-    difficulty: 'mudah',
-  },
+  { question: '[JP] Rambu segitiga terbalik merah di Jepang artinya?', options: ['Beri Jalan', 'Berhenti Total', 'Dilarang Masuk', 'Zona Sekolah'], correctAnswerIndex: 0, difficulty: 'menengah' },
+  { question: '[JP] Lingkaran merah dengan angka kecepatan (contoh 40) artinya?', options: ['Batas Kecepatan 40 km/j', 'Kecepatan Minimum 40', 'Zona 40 Meter', 'Jarak 40 m'], correctAnswerIndex: 0, difficulty: 'mudah' },
 ];
-
-export {
-  normalizeVersion,
-  versionsOrder,
-  versionLabels,
-} from './version';
 
 // Urutan versi yang ditampilkan di picker
 export const versionsOrder: VersionCode[] = ['global', 'id', 'de', 'jp'];
@@ -103,3 +53,4 @@ export function getQuestionsForVersion(v: VersionCode): Question[] {
       return quizQuestions;
   }
 }
+

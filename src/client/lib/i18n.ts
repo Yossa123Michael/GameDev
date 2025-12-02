@@ -1,5 +1,3 @@
-// i18n sederhana: simpan bahasa di localStorage, sediakan dictionary, dan helper t()
-
 export type LangKey = 'id' | 'en';
 
 type Dict = Record<string, string>;
@@ -38,7 +36,7 @@ function getInitialLang(): LangKey {
     const raw = localStorage.getItem('rk:lang');
     if (raw === 'id' || raw === 'en') return raw;
   } catch {}
-  return 'id'; // default Indonesia
+  return 'id';
 }
 
 export function setLang(lang: LangKey) {
@@ -55,7 +53,6 @@ export function t(key: keyof typeof dicts['id']): string {
   return d[key] ?? key;
 }
 
-// Utility: buat tombol toggle bahasa sederhana
 export function nextLang(): LangKey {
   return currentLang === 'id' ? 'en' : 'id';
 }
