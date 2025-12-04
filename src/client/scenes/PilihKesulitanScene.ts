@@ -2,63 +2,47 @@ import { BaseScene } from './BaseScene';
 import { t } from '../lib/i18n';
 
 export class PilihKesulitanScene extends BaseScene {
-  private titleText?: Phaser.GameObjects.Text;
-  private easyBtn?: Phaser.GameObjects.Container;
-  private mediumBtn?: Phaser.GameObjects.Container;
-  private hardBtn?: Phaser.GameObjects.Container;
+  private mode: 'belajar' | 'survive' = 'belajar';
+  private buttons: Phaser.GameObjects.Container[] = [];
+
+  constructor() { super('PilihKesulitanScene'); }
+  init(data: { mode?: 'belajar' | 'survive' }) { if (data?.mode) this.mode = data.mode; }
 
   public override create() {
     super.create();
-    this.createCommonButtons('PilihModeScene');
+    this.ensureBackIcon(true);
+    this.setTitle(t('chooseDifficultyTitle') ?? 'Pilih tingkat Kesulitan');
 
-    this.titleText = this.add.text(this.centerX, 90, t('chooseDifficultyTitle'), {
-      fontFamily: 'Nunito', fontSize: '36px', color: '#000'
-    }).setOrigin(0.5);
+    const items = [
+      { label: t('diffEasy') ?? 'Mudah', go: () => this.scene.start('GameScene', { mode: this.mode, difficulty: 'mudah' }) },
+      { label: t('diffMedium') ?? 'Menengah', go: () => this.scene.start('GameScene', { mode: this.mode, difficulty: 'menengah' }) },
+      { label: t('diffHard') ?? 'Sulit', go: () => this.scene.start('GameScene', { mode: this.mode, difficulty: 'sulit' }) },
+      { label: 'Pro', go: () => this.scene.start('GameScene', { mode: this.mode, difficulty: 'pro' }) },
+    ];
 
-    let y = 170;
-    this.easyBtn = this.createButton(y, t('diffEasy'), () => {
-      this.playSound('sfx_click', { volume: 0.7 });
-      this.scene.start('GameScene', { difficulty: 'easy' });
-    });
-    this.sceneContentGroup.add(this.easyBtn);
-    y += Math.max(55, Math.round(this.scale.height * 0.10));
-
-    this.mediumBtn = this.createButton(y, t('diffMedium'), () => {
-      this.playSound('sfx_click', { volume: 0.7 });
-      this.scene.start('GameScene', { difficulty: 'medium' });
-    });
-    this.sceneContentGroup.add(this.mediumBtn);
-    y += Math.max(55, Math.round(this.scale.height * 0.10));
-
-    this.hardBtn = this.createButton(y, t('diffHard'), () => {
-      this.playSound('sfx_click', { volume: 0.7 });
-      this.scene.start('GameScene', { difficulty: 'hard' });
-    });
-    this.sceneContentGroup.add(this.hardBtn);
-
-    this.game.events.on('lang:changed', this.relabel, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.game.events.off('lang:changed', this.relabel, this);
-    });
+    const heightPx = 56;
+    let y = this.panelTop + Math.round(this.panelHeight * 0.3125) + 24;
+    for (const it of items) {
+      const btn = this.createWidePill(it.label, it.go, 0.86, heightPx);
+      btn.setPosition(this.centerX, y);
+      this.buttons.push(btn);
+      y += 60;
+    }
   }
 
-  private relabel = () => {
-    this.titleText?.setText(t('chooseDifficultyTitle'));
-    const eTxt = this.easyBtn?.getAt(1) as Phaser.GameObjects.Text | undefined;
-    const mTxt = this.mediumBtn?.getAt(1) as Phaser.GameObjects.Text | undefined;
-    const hTxt = this.hardBtn?.getAt(1) as Phaser.GameObjects.Text | undefined;
-    eTxt?.setText(t('diffEasy'));
-    mTxt?.setText(t('diffMedium'));
-    hTxt?.setText(t('diffHard'));
-  };
-
   public override draw() {
-    this.titleText?.setPosition(this.centerX, 90);
-    let y = 170;
-    this.easyBtn?.setPosition(this.centerX, y);
-    y += Math.max(55, Math.round(this.scale.height * 0.10));
-    this.mediumBtn?.setPosition(this.centerX, y);
-    y += Math.max(55, Math.round(this.scale.height * 0.10));
-    this.hardBtn?.setPosition(this.centerX, y);
+    this.ensureBackIcon(true);
+    this.setTitle(t('chooseDifficultyTitle') ?? 'Pilih tingkat Kesulitan');
+    const heightPx = 56; const widthPx = Math.round(this.panelWidth * 0.86);
+    let y = this.panelTop + Math.round(this.panelHeight * 0.3125) + 24;
+    const radius = Math.min(24, Math.floor(heightPx * 0.45));
+
+    this.buttons.forEach((c) => {
+      c.setPosition(this.centerX, y);
+      (c as any).height = heightPx; (c as any).width = widthPx;
+      this.ensureGraphicsInContainer(c, widthPx, heightPx, radius, 0xffffff, 0x000000, 2);
+      (c.getAt(2) as Phaser.GameObjects.Zone | undefined)?.setSize(widthPx, heightPx);
+      y += 60;
+    });
   }
 }
