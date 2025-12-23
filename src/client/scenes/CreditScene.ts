@@ -1,6 +1,6 @@
 import { BaseScene } from './BaseScene';
 
-export default class CreditScene extends BaseScene {
+export class CreditScene extends BaseScene {
   private lines: Phaser.GameObjects.Text[] = [];
   constructor() { super('CreditScene'); }
 
@@ -9,6 +9,9 @@ export default class CreditScene extends BaseScene {
     this.ensureBackIcon(true);
     this.setTitle('Credit');
 
+    const titleSize = Math.max(18, Math.round(Math.min(this.scale.width, this.scale.height) * 0.032));
+    const bodySize = Math.max(16, Math.round(Math.min(this.scale.width, this.scale.height) * 0.028));
+
     const sections = [
       { title: 'Creator', body: ['Nama • Link', 'Nama • Link'] },
       { title: 'Backsound Artist', body: ['Nama • Link'] },
@@ -16,22 +19,21 @@ export default class CreditScene extends BaseScene {
       { title: 'Sound Effect Artist', body: ['Nama • Link'] },
     ];
 
-    let y = this.panelTop + Math.round(this.panelHeight * 0.3125) + 24;
-    sections.forEach((sec) => {
-      const title = this.add.text(this.centerX, y, sec.title, { fontFamily: 'Nunito', fontSize: '18px', color: '#000' }).setOrigin(0.5);
-      this.lines.push(title); y += 26;
-      sec.body.forEach((txt) => {
-        const t = this.add.text(this.centerX, y, txt, { fontFamily: 'Nunito', fontSize: '16px', color: '#000' }).setOrigin(0.5);
+    let y = this.getContentAreaTop() + 16;
+    for (const sec of sections) {
+      const title = this.add.text(this.centerX, y, sec.title, { fontFamily: 'Nunito', fontSize: `${titleSize}px`, color: '#000' }).setOrigin(0.5);
+      this.lines.push(title); y += Math.round(titleSize * 1.3);
+      for (const txt of sec.body) {
+        const t = this.add.text(this.centerX, y, txt, { fontFamily: 'Nunito', fontSize: `${bodySize}px`, color: '#000' }).setOrigin(0.5);
         t.setInteractive({ useHandCursor: true }).on('pointerup', () => { /* TODO: window.open(link) */ });
-        this.lines.push(t); y += 22;
-      });
-      y += 16;
-    });
+        this.lines.push(t); y += Math.round(bodySize * 1.2);
+      }
+      y += Math.round(bodySize * 0.8);
+    }
   }
 
   public override draw() {
     this.ensureBackIcon(true);
     this.setTitle('Credit');
-    // statis
   }
 }

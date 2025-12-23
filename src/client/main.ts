@@ -9,7 +9,7 @@ import { LeaderboardCategoryScene } from './scenes/LeaderboardCategoryScene';
 import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { AchievementScene } from './scenes/AchievementScene';
 import { OptionScene } from './scenes/OptionScene';
-import CreditScene from './scenes/CreditScene';
+import { CreditScene } from './scenes/CreditScene';
 import { ensureAnonAuth } from './lib/supabaseClient';
 
 console.log('main.ts loaded');

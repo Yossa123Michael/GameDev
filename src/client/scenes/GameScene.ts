@@ -34,14 +34,19 @@ export class Game extends BaseScene {
   private scoreText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
-  private titleText!: Phaser.GameObjects.Text;
+  // FIX TypeScript: jangan pakai nama titleText (sudah ada di BaseScene)
+  private questionTitle!: Phaser.GameObjects.Text;
 
   private optionButtons: Phaser.GameObjects.Container[] = [];
   private isLocked = false;
   private achievementPopup?: Phaser.GameObjects.Container;
 
   constructor() { super('GameScene'); }
-  init(data: { mode?: Mode; difficulty?: DifficultyKey }) { if (data?.mode) this.mode = data.mode; if (data?.difficulty) this.difficulty = data.difficulty; this.cfg = difficultySettings[this.difficulty]; }
+  override init(data: { mode?: Mode; difficulty?: DifficultyKey }) {
+    if (data?.mode) this.mode = data.mode;
+    if (data?.difficulty) this.difficulty = data.difficulty;
+    this.cfg = difficultySettings[this.difficulty];
+  }
 
   public override create() {
     super.create();
@@ -58,18 +63,17 @@ export class Game extends BaseScene {
   }
 
   private buildHUD() {
-    const headerAreaHeight = Math.round(this.panelHeight * 0.3125);
-    const hudY = this.panelTop + Math.min(headerAreaHeight - 20, 20);
-    const fontPx = Math.max(14, Math.round(Math.min(this.scale.width, this.scale.height) * 0.035));
-
+    const hudY = this.panelTop + Math.min(this.getHeaderAreaHeight() - 20, 20);
+    const fontPx = Math.max(14, Math.round(Math.min(this.scale.width, this.scale.height) * 0.04));
     this.scoreText = this.add.text(this.panelLeft + 16, hudY, `Score: ${this.score.toFixed(1)}`, { fontFamily: 'Nunito', fontSize: `${fontPx}px`, color: '#000' }).setOrigin(0, 0.5);
     const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
     this.timerText = this.add.text(this.centerX, hudY, `Waktu: ${timeVal}`, { fontFamily: 'Nunito', fontSize: `${fontPx}px`, color: '#000' }).setOrigin(0.5, 0.5);
     this.livesText = this.add.text(this.panelLeft + this.panelWidth - 16, hudY, `Nyawa: ${this.lives}`, { fontFamily: 'Nunito', fontSize: `${fontPx}px`, color: '#000' }).setOrigin(1, 0.5);
     if (this.mode === 'belajar') this.livesText.setVisible(false);
 
-    this.titleText = this.add.text(this.centerX, hudY + 40, 'Pertanyaan', { fontFamily: 'Nunito', fontSize: '22px', color: '#000' }).setOrigin(0.5, 0.5);
-    this.add.line(this.centerX, this.titleText.y + 24, this.panelLeft + 12, 0, this.panelLeft + this.panelWidth - 12, 0, 0xdddddd).setOrigin(0.5, 0).setLineWidth(2);
+    const qTitleSize = Math.max(22, Math.round(Math.min(this.scale.width, this.scale.height) * 0.042));
+    this.questionTitle = this.add.text(this.centerX, hudY + 40, 'Pertanyaan', { fontFamily: 'Nunito', fontSize: `${qTitleSize}px`, color: '#000' }).setOrigin(0.5, 0.5);
+    this.add.line(this.centerX, this.questionTitle.y + 24, this.panelLeft + 12, 0, this.panelLeft + this.panelWidth - 12, 0, 0xdddddd).setOrigin(0.5, 0).setLineWidth(2);
   }
 
   private resetState() {
@@ -126,11 +130,11 @@ export class Game extends BaseScene {
     if (this.mode === 'survive') { this.perQuestionRemaining = this.cfg.perQuestionTime; this.timerText?.setText(`Waktu: ${this.perQuestionRemaining}`); }
     this.questionStartMs = this.time.now;
 
-    const heightPx = 48;
-    const startY = this.titleText.y + 62;
+    const heightPx = Math.max(48, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
+    const startY = this.questionTitle.y + Math.round(heightPx * 1.3);
     q.options.forEach((opt, i) => {
       const btn = this.createWidePill(opt, () => this.onChoose(i), 0.86, heightPx);
-      btn.setPosition(this.centerX, startY + i * Math.max(56, Math.round(this.scale.height * 0.09)));
+      btn.setPosition(this.centerX, startY + i * Math.max(heightPx * 1.2, Math.round(this.scale.height * 0.09)));
       this.optionButtons.push(btn);
     });
   }
@@ -169,8 +173,11 @@ export class Game extends BaseScene {
     const w = Math.min(280, Math.round(this.panelWidth * 0.7));
     const h = 40;
     const c = this.add.container(0, 0).setDepth(999);
-    const bg = this.add.rectangle(this.centerX, this.panelTop + 12 + h / 2, w, h, 0xffffff).setStrokeStyle(2, 0x000000).setOrigin(0.5);
-    const t = this.add.text(bg.x, bg.y, text, { fontFamily: 'Nunito', fontSize: '16px', color: '#000' }).setOrigin(0.5);
+    const bg = this.add.graphics();
+    bg.lineStyle(2, 0x000000, 1).fillStyle(0xffffff, 1);
+    bg.fillRoundedRect(this.centerX - w / 2, this.panelTop + 12, w, h, 10);
+    bg.strokeRoundedRect(this.centerX - w / 2, this.panelTop + 12, w, h, 10);
+    const t = this.add.text(this.centerX, this.panelTop + 12 + h / 2, text, { fontFamily: 'Nunito', fontSize: '16px', color: '#000' }).setOrigin(0.5);
     c.add([bg, t]); this.achievementPopup = c;
     this.time.delayedCall(1200, () => { try { this.achievementPopup?.destroy(true); } catch {} });
   }
@@ -182,14 +189,13 @@ export class Game extends BaseScene {
   private onShutdown() { this.timerEvent?.remove(); this.timerEvent = null; this.clearOptionButtons(); this.input.removeAllListeners(); try { this.achievementPopup?.destroy(true); } catch {} }
 
   public override draw() {
-    const headerAreaHeight = Math.round(this.panelHeight * 0.3125);
-    const hudY = this.panelTop + Math.min(headerAreaHeight - 20, 20);
-    const fontPx = Math.max(14, Math.round(Math.min(this.scale.width, this.scale.height) * 0.035));
+    const hudY = this.panelTop + Math.min(this.getHeaderAreaHeight() - 20, 20);
+    const fontPx = Math.max(14, Math.round(Math.min(this.scale.width, this.scale.height) * 0.04));
     this.scoreText?.setPosition(this.panelLeft + 16, hudY).setStyle({ fontSize: `${fontPx}px` });
     const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
     this.timerText?.setPosition(this.centerX, hudY).setText(`Waktu: ${timeVal}`).setStyle({ fontSize: `${fontPx}px` });
-    if (this.mode === 'survive') { this.livesText?.setPosition(this.panelLeft + this.panelWidth - 16, hudY).setVisible(true).setText(`Nyawa: ${this.lives}`).setStyle({ fontSize: `${fontPx}px` }); }
-    else { this.livesText?.setVisible(false); }
-    this.titleText?.setPosition(this.centerX, hudY + 40);
+    if (this.mode === 'survive') this.livesText?.setPosition(this.panelLeft + this.panelWidth - 16, hudY).setVisible(true).setText(`Nyawa: ${this.lives}`).setStyle({ fontSize: `${fontPx}px` });
+    else this.livesText?.setVisible(false);
+    this.questionTitle?.setPosition(this.centerX, hudY + 40);
   }
 }

@@ -10,32 +10,19 @@ export class LeaderboardModeScene extends BaseScene {
     this.ensureBackIcon(true);
     this.setTitle(t('leaderboard') ?? 'LeaderBoard');
 
+    const heightPx = Math.max(48, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
     const items = [
       { label: t('modeLearn') ?? 'Belajar', go: () => this.scene.start('LeaderboardCategoryScene', { type: 'belajar' }) },
       { label: t('modeSurvive') ?? 'Survive', go: () => this.scene.start('LeaderboardCategoryScene', { type: 'survive' }) },
     ];
-    const heightPx = 48;
-    let y = this.panelTop + Math.round(this.panelHeight * 0.3125) + 24;
-    for (const it of items) {
-      const btn = this.createWidePill(it.label, it.go, 0.86, heightPx);
-      btn.setPosition(this.centerX, y);
-      this.buttons.push(btn);
-      y += 60;
-    }
+    items.forEach(it => this.buttons.push(this.createWidePill(it.label, () => { this.playSound('sfx_click'); it.go(); }, 0.86, heightPx)));
+    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.2));
   }
 
   public override draw() {
     this.ensureBackIcon(true);
     this.setTitle(t('leaderboard') ?? 'LeaderBoard');
-    const heightPx = 48; const widthPx = Math.round(this.panelWidth * 0.86);
-    let y = this.panelTop + Math.round(this.panelHeight * 0.3125) + 24;
-    const radius = Math.min(24, Math.floor(heightPx * 0.45));
-    this.buttons.forEach((c) => {
-      c.setPosition(this.centerX, y);
-      (c as any).height = heightPx; (c as any).width = widthPx;
-      this.ensureGraphicsInContainer(c, widthPx, heightPx, radius, 0xffffff, 0x000000, 2);
-      (c.getAt(2) as Phaser.GameObjects.Zone | undefined)?.setSize(widthPx, heightPx);
-      y += 60;
-    });
+    const heightPx = Math.max(48, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
+    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.2));
   }
 }

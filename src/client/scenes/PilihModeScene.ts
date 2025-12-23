@@ -10,34 +10,18 @@ export class PilihModeScene extends BaseScene {
     this.ensureBackIcon(true);
     this.setTitle(t('chooseModeTitle') ?? 'Pilih Mode');
 
-    const items = [
-      { label: t('modeLearn') ?? 'Belajar', go: () => this.scene.start('PilihKesulitanScene', { mode: 'belajar' }) },
-      { label: t('modeSurvive') ?? 'Survive', go: () => this.scene.start('PilihKesulitanScene', { mode: 'survive' }) },
+    const heightPx = Math.max(52, Math.round(Math.min(this.scale.width, this.scale.height) * 0.07));
+    this.buttons = [
+      this.createWidePill(t('modeLearn') ?? 'Belajar', () => { this.playSound('sfx_click'); this.scene.start('PilihKesulitanScene', { mode: 'belajar' }); }, 0.86, heightPx),
+      this.createWidePill(t('modeSurvive') ?? 'Survive', () => { this.playSound('sfx_click'); this.scene.start('PilihKesulitanScene', { mode: 'survive' }); }, 0.86, heightPx),
     ];
-
-    const heightPx = 56;
-    let y = this.panelTop + Math.round(this.panelHeight * 0.3125) + 24;
-    for (const it of items) {
-      const btn = this.createWidePill(it.label, it.go, 0.86, heightPx);
-      btn.setPosition(this.centerX, y);
-      this.buttons.push(btn);
-      y += 72;
-    }
+    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.25));
   }
 
   public override draw() {
     this.ensureBackIcon(true);
     this.setTitle(t('chooseModeTitle') ?? 'Pilih Mode');
-    const heightPx = 56; const widthPx = Math.round(this.panelWidth * 0.86);
-    let y = this.panelTop + Math.round(this.panelHeight * 0.3125) + 24;
-    const radius = Math.min(24, Math.floor(heightPx * 0.45));
-
-    this.buttons.forEach((c) => {
-      c.setPosition(this.centerX, y);
-      (c as any).height = heightPx; (c as any).width = widthPx;
-      this.ensureGraphicsInContainer(c, widthPx, heightPx, radius, 0xffffff, 0x000000, 2);
-      (c.getAt(2) as Phaser.GameObjects.Zone | undefined)?.setSize(widthPx, heightPx);
-      y += 72;
-    });
+    const heightPx = Math.max(52, Math.round(Math.min(this.scale.width, this.scale.height) * 0.07));
+    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.25));
   }
 }

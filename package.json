@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@devvit/web": "0.12.1",
-    "@supabase/supabase-js": "^2.0.0",
+    "@supabase/supabase-js": "^2.89.0",
     "devvit": "0.12.1",
     "express": "5.1.0",
     "phaser": "3.88.2",

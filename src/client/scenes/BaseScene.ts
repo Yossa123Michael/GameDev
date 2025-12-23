@@ -5,24 +5,21 @@ export class BaseScene extends Phaser.Scene {
   protected centerX!: number;
   protected centerY!: number;
 
-  // Panel tengah dengan gutter abu-abu
   protected panelWidth = 0;
   protected panelLeft = 0;
   protected panelTop = 0;
   protected panelHeight = 0;
 
-  // Header: back di kiri atas canvas, judul di area atas panel
   protected backIcon?: Phaser.GameObjects.Image;
   protected titleText?: Phaser.GameObjects.Text;
+  private headerDividerGfx: Phaser.GameObjects.Graphics | null = null;
 
-  private gutterLeftRect?: Phaser.GameObjects.Rectangle | null;
-  private gutterRightRect?: Phaser.GameObjects.Rectangle | null;
-  private cardRect?: Phaser.GameObjects.Rectangle | null;
+  private cardRect: Phaser.GameObjects.Rectangle | null = null;
 
   protected static bgm: Phaser.Sound.BaseSound | null = null;
   protected static audioContextResumed = false;
 
-  private resizeHandlerBound?: (size: Phaser.Structs.Size) => void;
+  private resizeHandlerBound: ((size: Phaser.Structs.Size) => void) | undefined;
 
   constructor(sceneKey: string) { super(sceneKey); }
 
@@ -31,8 +28,14 @@ export class BaseScene extends Phaser.Scene {
     this.load.image('back_arrow', 'assets/Images/Back.png');
     this.load.audio('bgm', 'assets/Sounds/Backsound.wav');
     this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');
-    this.load.audio('sfx_correct', 'assets/Sounds/Correct.mp3');
-    this.load.audio('sfx_incorrect', 'assets/Sounds/Wrong.mp3');
+    // Jangan load correct/incorrect untuk mencegah error decode jika aset belum valid
+    // this.load.audio('sfx_correct', 'assets/Sounds/Correct.mp3');
+    // this.load.audio('sfx_incorrect', 'assets/Sounds/Wrong.mp3');
+  }
+
+  protected getHeaderRatio() {
+    const key = this.sys.settings.key as string;
+    return key === 'MainMenuScene' ? 0.3125 : 0.25;
   }
 
   create() {
@@ -65,78 +68,126 @@ export class BaseScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.detachAll());
   }
 
-  // Title dipusatkan di area atas panel (sekitar 31.25% tinggi panel digunakan untuk header + judul)
-  protected setTitle(text: string) {
-    const headerAreaHeight = Math.round(this.panelHeight * 0.3125);
-    const y = this.panelTop + Math.min(headerAreaHeight - 20, 20);
-    if (!this.titleText) {
-      this.titleText = this.add.text(this.centerX, y, text, { fontFamily: 'Nunito', fontSize: '20px', color: '#000' })
-        .setOrigin(0.5).setDepth(4);
-    } else {
-      this.titleText.setText(text).setPosition(this.centerX, y);
+  protected getHeaderAreaHeight() { return Math.round(this.panelHeight * this.getHeaderRatio()); }
+  protected getHeaderCenterY() { return this.panelTop + Math.round(this.getHeaderAreaHeight() / 2); }
+  protected getContentAreaTop() { return this.panelTop + this.getHeaderAreaHeight(); }
+  protected getContentAreaHeight() { return this.panelHeight - this.getHeaderAreaHeight(); }
+
+  // Safe setTitle: tangani error drawImage/null dengan retry
+  protected setTitle(text: string, attempt = 0) {
+    const y = this.getHeaderCenterY();
+    const fontSize = Math.max(24, Math.round(Math.min(this.scale.width, this.scale.height) * 0.055));
+    try {
+      if (!this.titleText) {
+        this.titleText = this.add.text(this.centerX, y, text, { fontFamily: 'Nunito', fontSize: `${fontSize}px`, color: '#000' })
+          .setOrigin(0.5).setDepth(900);
+      } else {
+        this.titleText.setText(text).setPosition(this.centerX, y).setStyle({ fontSize: `${fontSize}px` });
+      }
+      this.drawHeaderDivider();
+    } catch (err) {
+      // Jika WebGL context/font belum siap, coba lagi sebentar
+      if (attempt < 5) {
+        this.time.delayedCall(50, () => this.setTitle(text, attempt + 1));
+      } else {
+        // fallback: buat baru
+        try { this.titleText?.destroy(); } catch {}
+        this.titleText = this.add.text(this.centerX, y, text, { fontFamily: 'Nunito', fontSize: `${fontSize}px`, color: '#000' })
+          .setOrigin(0.5).setDepth(900);
+        this.drawHeaderDivider();
+      }
     }
+  }
+
+  protected drawHeaderDivider() {
+    const leftX = this.panelLeft + 12;
+    const rightX = this.panelLeft + this.panelWidth - 12;
+    const y = this.getContentAreaTop();
+
+    if (!this.headerDividerGfx) {
+      this.headerDividerGfx = this.add.graphics().setDepth(850);
+    }
+    const g = this.headerDividerGfx;
+    g.clear();
+    g.lineStyle(2, 0xdddddd, 1);
+    g.beginPath();
+    g.moveTo(leftX, y);
+    g.lineTo(rightX, y);
+    g.strokePath();
   }
 
   protected ensureBackIcon(visible: boolean) {
     const x = this.panelLeft + 16;
     const y = this.panelTop + 16;
-    if (!this.backIcon) {
-      this.backIcon = this.add.image(x, y, 'back_arrow').setOrigin(0, 0).setDepth(5).setInteractive({ useHandCursor: true });
-      const target = 20; const scale = target / Math.max(1, this.backIcon.height);
-      this.backIcon.setScale(scale);
-      this.backIcon.on('pointerup', () => this.scene.start('MainMenuScene'));
-    } else {
-      this.backIcon.setPosition(x, y);
+    const target = Math.max(28, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
+    try {
+      if (!this.backIcon) {
+        this.backIcon = this.add.image(x, y, 'back_arrow')
+          .setOrigin(0, 0)
+          .setDepth(3000)
+          .setInteractive({ useHandCursor: true });
+        const scale = target / Math.max(1, this.backIcon.height);
+        this.backIcon.setScale(scale);
+        this.backIcon.on('pointerup', () => this.scene.start('MainMenuScene'));
+      } else {
+        this.backIcon.setPosition(x, y);
+        const scale = target / Math.max(1, this.backIcon.height);
+        this.backIcon.setScale(scale);
+        this.backIcon.setDepth(3000);
+      }
+      this.backIcon.setVisible(visible);
+    } catch {
+      // Retry jika context belum siap
+      this.time.delayedCall(50, () => this.ensureBackIcon(visible));
     }
-    this.backIcon.setVisible(visible);
   }
   protected hideBackIcon() { this.backIcon?.setVisible(false); }
 
   protected computePanel() {
-    const minPanelW = Math.min(this.scale.width, 320);
-    this.panelWidth = Math.max(minPanelW, Math.round(this.scale.width * 0.86));
-    this.panelLeft = Math.max(0, Math.round((this.scale.width - this.panelWidth) / 2));
-    this.panelTop = 12;
-    this.panelHeight = Math.max(160, this.scale.height - this.panelTop);
+    // Full putih: panel = seluruh canvas
+    this.panelLeft = 0;
+    this.panelTop = 0;
+    this.panelWidth = this.scale.width;
+    this.panelHeight = this.scale.height;
   }
 
   protected redrawPanel() {
-    try { this.gutterLeftRect?.destroy(); } catch {} this.gutterLeftRect = null;
-    try { this.gutterRightRect?.destroy(); } catch {} this.gutterRightRect = null;
     try { this.cardRect?.destroy(); } catch {} this.cardRect = null;
-
-    const leftW = Math.max(0, this.panelLeft);
-    const rightW = Math.max(0, this.scale.width - (this.panelLeft + this.panelWidth));
-
-    this.gutterLeftRect = this.add.rectangle(0, this.panelTop, Math.max(1, leftW), this.panelHeight, 0xf0f0f0).setOrigin(0, 0).setDepth(1);
-    this.gutterRightRect = this.add.rectangle(this.panelLeft + this.panelWidth, this.panelTop, Math.max(1, rightW), this.panelHeight, 0xf0f0f0).setOrigin(0, 0).setDepth(1);
-    this.cardRect = this.add.rectangle(this.panelLeft, this.panelTop, Math.max(1, this.panelWidth), this.panelHeight, 0xffffff).setOrigin(0, 0).setDepth(2);
+    this.cardRect = this.add.rectangle(0, 0, Math.max(1, this.scale.width), Math.max(1, this.scale.height), 0xffffff)
+      .setOrigin(0, 0).setDepth(200);
   }
 
-  protected drawBigLogoCentered(targetHeightPx = 160, marginBottomPx = 24) {
-    if (!this.textures.exists('logo')) return this.panelTop + marginBottomPx;
-    const existing = this.children.getByName('__biglogo__') as Phaser.GameObjects.Image | null;
-    let img = existing;
+  protected drawLogoInHeader(preferredHeight = 160, marginTop = 12) {
+    if (!this.textures.exists('logo')) return;
+    const headerH = this.getHeaderAreaHeight();
+    const availableH = Math.max(10, headerH - marginTop - 12);
+    const scaled = Math.max(120, Math.round(Math.min(this.scale.width, this.scale.height) * 0.22));
+    const finalH = Math.min(preferredHeight, availableH, scaled);
+
+    let img = this.children.getByName('__biglogo__') as Phaser.GameObjects.Image | null;
     if (!img) {
-      img = this.add.image(this.centerX, this.panelTop + targetHeightPx / 2 + 8, 'logo').setOrigin(0.5, 0.5).setDepth(3);
+      img = this.add.image(this.centerX, 0, 'logo').setOrigin(0.5).setDepth(800);
       (img as any).name = '__biglogo__';
     }
-    img.setPosition(this.centerX, this.panelTop + targetHeightPx / 2 + 8);
-    const scale = targetHeightPx / Math.max(1, img.height);
+    const scale = finalH / Math.max(1, img.height);
     img.setScale(scale);
-    return img.y + targetHeightPx / 2 + marginBottomPx;
+    const y = this.panelTop + marginTop + finalH / 2;
+    img.setPosition(this.centerX, y);
+
+    this.drawHeaderDivider();
   }
 
   protected createWidePill(label: string, onClick: () => void, widthRatio = 0.86, heightPx = 56) {
     const widthPx = Math.round(this.panelWidth * widthRatio);
     const radius = Math.min(24, Math.floor(heightPx * 0.45));
-    const c = this.add.container(0, 0).setDepth(4);
+    const c = this.add.container(0, 0).setDepth(400);
 
     const g = this.add.graphics();
     this.updateButtonGraphics(g, widthPx, heightPx, 0xffffff, 0x000000, 2, radius);
 
+    const txtSize = Math.max(16, Math.floor(heightPx * 0.45));
     const txt = this.add.text(0, 0, label, {
-      fontFamily: 'Nunito', fontSize: `${Math.max(16, Math.floor(heightPx * 0.45))}px`,
+      fontFamily: 'Nunito', fontSize: `${txtSize}px`,
       color: '#000', align: 'center', wordWrap: { width: Math.floor(widthPx * 0.9) }
     }).setOrigin(0.5);
 
@@ -146,6 +197,26 @@ export class BaseScene extends Phaser.Scene {
     (c as any).width = widthPx; (c as any).height = heightPx;
     c.add([g, txt, zone]);
     return c;
+  }
+
+  protected layoutPillsCentered(containers: Phaser.GameObjects.Container[], buttonHeight: number, gap: number) {
+    const contentTop = this.getContentAreaTop();
+    const contentH = this.getContentAreaHeight();
+    const n = containers.length;
+    const total = n > 0 ? n * buttonHeight + (n - 1) * gap : 0;
+    const startCenter = contentTop + (contentH - total) / 2 + buttonHeight / 2;
+
+    const widthPx = Math.round(this.panelWidth * 0.86);
+    const radius = Math.min(24, Math.floor(buttonHeight * 0.45));
+
+    let yCenter = startCenter;
+    for (const c of containers) {
+      c.setPosition(this.centerX, Math.round(yCenter));
+      (c as any).height = buttonHeight; (c as any).width = widthPx;
+      this.ensureGraphicsInContainer(c, widthPx, buttonHeight, radius, 0xffffff, 0x000000, 2);
+      (c.getAt(2) as Phaser.GameObjects.Zone | undefined)?.setSize(widthPx, buttonHeight);
+      yCenter += buttonHeight + gap;
+    }
   }
 
   protected ensureGraphicsInContainer(
@@ -196,9 +267,8 @@ export class BaseScene extends Phaser.Scene {
   protected playSound(key: string, cfg?: any) {
     const s = SettingsManager.get();
     if (!s.sfxOn) return;
-    const vol = (s.sfxVol ?? 1);
-    if (key === 'sfx_correct' || key === 'sfx_incorrect') return; // hindari spam log
-    try { this.sound.play(key, { volume: vol, ...cfg }); } catch {}
+    if (key === 'sfx_correct' || key === 'sfx_incorrect') return;
+    try { this.sound.play(key, { volume: (s.sfxVol ?? 1), ...cfg }); } catch {}
   }
 
   private onResize(_size: Phaser.Structs.Size) {
@@ -214,9 +284,8 @@ export class BaseScene extends Phaser.Scene {
   private detachAll() {
     try { if (this.resizeHandlerBound) this.scale.off(Phaser.Scale.Events.RESIZE, this.resizeHandlerBound as any, this); } catch {}
     this.resizeHandlerBound = undefined;
-    try { this.gutterLeftRect?.destroy(); } catch {} this.gutterLeftRect = null;
-    try { this.gutterRightRect?.destroy(); } catch {} this.gutterRightRect = null;
     try { this.cardRect?.destroy(); } catch {} this.cardRect = null;
+    try { this.headerDividerGfx?.destroy(); } catch {} this.headerDividerGfx = null;
   }
 
   public draw() {}
