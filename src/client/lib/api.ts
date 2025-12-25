@@ -29,14 +29,13 @@ function getSupabase(): SupabaseClient {
   return supabase;
 }
 
-/**
- * Untuk sekarang kita belum punya OAuth Reddit,
- * jadi kita kembalikan user dummy. Nanti, kalau kamu
- * sudah punya username Reddit di luar game, tinggal
- * ganti implementasi ini.
- */
+// TODO: nanti diganti baca username Reddit beneran.
+// Untuk sekarang, pakai dummy supaya integrasi leaderboard bisa dites.
 export async function getCurrentUser(): Promise<CurrentUser> {
-  // TODO: ganti dengan real reddit username
+  const stored = localStorage.getItem('reddit_username');
+  if (stored) {
+    return { id: stored, redditUsername: stored };
+  }
   return { id: 'demo', redditUsername: 'DemoUser' };
 }
 
