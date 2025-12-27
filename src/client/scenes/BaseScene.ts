@@ -24,7 +24,7 @@ export class BaseScene extends Phaser.Scene {
   constructor(sceneKey: string) { super(sceneKey); }
 
   preload() {
-    this.load.image('logo', 'assets/Images/Asset 7.png');
+    this.load.image('logo', 'assets/Images/Logo.png');
     this.load.image('back_arrow', 'assets/Images/Back.png');
     this.load.audio('bgm', 'assets/Sounds/Backsound.wav');
     this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');
