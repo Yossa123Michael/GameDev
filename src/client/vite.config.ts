@@ -4,11 +4,11 @@ import { defineConfig } from 'vite';
 export default defineConfig(({ mode }) => {
   return {
     define: {
-    global: 'window',
-  },
+      global: 'window',
+    },
     build: {
       outDir: '../../dist/client',
-      emptyOutDir: true, // tambahkan ini agar Vite boleh mengosongkan folder di luar root
+      emptyOutDir: true,
       sourcemap: true,
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
@@ -21,18 +21,15 @@ export default defineConfig(({ mode }) => {
       ...(mode === 'production' && {
         minify: 'terser',
         terserOptions: {
-          compress: {
-            passes: 2,
-          },
+          compress: { passes: 2 },
           mangle: true,
-          format: {
-            comments: false,
-          },
+          format: { comments: false },
         },
       }),
     },
-    server: {
-    port: 3000,
-    },
+    // HAPUS atau komentar blok server
+    // server: {
+    //   port: 3000,
+    // },
   };
 });
