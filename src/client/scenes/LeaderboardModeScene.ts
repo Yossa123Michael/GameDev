@@ -3,26 +3,71 @@ import { t } from '../lib/i18n';
 
 export class LeaderboardModeScene extends BaseScene {
   private buttons: Phaser.GameObjects.Container[] = [];
-  constructor() { super('LeaderboardModeScene'); }
+
+  constructor() {
+    super('LeaderboardModeScene');
+  }
 
   public override create() {
     super.create();
-    this.ensureBackIcon(true);
-    this.setTitle(t('leaderboard') ?? 'LeaderBoard');
 
-    const heightPx = Math.max(48, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
+    this.ensureBackIcon(true);
+    this.setTitle(t('leaderboardTitle') ?? 'Leaderboard');
+
+    try { this.buttons.forEach(b => b.destroy()); } catch {}
+    this.buttons = [];
+
+    const heightPx = Math.max(
+      48,
+      Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
+    );
+
     const items = [
-      { label: t('modeLearn') ?? 'Belajar', go: () => this.scene.start('LeaderboardCategoryScene', { type: 'belajar' }) },
-      { label: t('modeSurvive') ?? 'Survive', go: () => this.scene.start('LeaderboardCategoryScene', { type: 'survive' }) },
+      {
+        label: t('leaderboardModeClassic') ?? 'Mode Klasik',
+        onTap: () =>
+          this.scene.start('LeaderboardCategoryScene', { mode: 'classic' }),
+      },
+      {
+        label: t('leaderboardModeSurvive') ?? 'Mode Survive',
+        onTap: () =>
+          this.scene.start('LeaderboardCategoryScene', { mode: 'survive' }),
+      },
     ];
-    items.forEach(it => this.buttons.push(this.createWidePill(it.label, () => { this.playSound('sfx_click'); it.go(); }, 0.86, heightPx)));
-    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.2));
+
+    this.buttons = items.map(it =>
+      this.createWidePill(
+        it.label,
+        () => {
+          this.playSound('sfx_click');
+          it.onTap();
+        },
+        0.86,
+        heightPx,
+      ),
+    );
+
+    this.layoutPillsCentered(
+      this.buttons,
+      heightPx,
+      Math.round(heightPx * 0.24),
+    );
   }
 
   public override draw() {
+    if (!this.buttons || this.buttons.length === 0) return;
+
     this.ensureBackIcon(true);
-    this.setTitle(t('leaderboard') ?? 'LeaderBoard');
-    const heightPx = Math.max(48, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
-    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.2));
+    this.setTitle(t('leaderboardTitle') ?? 'Leaderboard');
+
+    const heightPx = Math.max(
+      48,
+      Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
+    );
+    this.layoutPillsCentered(
+      this.buttons,
+      heightPx,
+      Math.round(heightPx * 0.24),
+    );
   }
 }

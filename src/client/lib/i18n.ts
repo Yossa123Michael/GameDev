@@ -4,7 +4,7 @@ type Dict = Record<string, string>;
 
 const dicts: Record<LangKey, Dict> = {
   id: {
-    optionsTitle: 'Opsi',
+    optionsTitle: 'Pengaturan',
     music: 'Musik',
     sfx: 'SFX',
     on: 'Nyala',
@@ -19,7 +19,7 @@ const dicts: Record<LangKey, Dict> = {
     prev: 'Sebelum',
     next: 'Berikut',
     change: 'Ubah',
-    resetLocal: 'Reset Progres (Lokal)',
+    resetLocal: 'Reset Akun',
     animation: 'Animasi',
 
     leaderboardTitle: 'Papan Skor',
@@ -39,8 +39,8 @@ const dicts: Record<LangKey, Dict> = {
     creditSoundArtist: 'Seniman Suara',
     creditFont: 'Font',
 
-    mainPlay: 'Main',
-    mainOptions: 'Opsi',
+    mainPlay: 'Mulai',
+    mainOptions: 'Pengaturan',
     mainLeaderboard: 'Papan Skor',
     mainAchievement: 'Pencapaian',
     mainQuit: 'Keluar',
@@ -83,7 +83,7 @@ const dicts: Record<LangKey, Dict> = {
     creditSoundArtist: 'Sound Artist',
     creditFont: 'Font',
 
-    mainPlay: 'Play',
+    mainPlay: 'Start',
     mainOptions: 'Options',
     mainLeaderboard: 'Leaderboard',
     mainAchievement: 'Achievement',

@@ -4,45 +4,98 @@ import { t } from '../lib/i18n';
 export class MainMenuScene extends BaseScene {
   private buttons: Phaser.GameObjects.Container[] = [];
 
-  constructor() { super('MainMenuScene'); }
+  constructor() {
+    super('MainMenuScene');
+  }
 
   public override create() {
     super.create();
 
-    // FIX drift: bersihkan jika scene dibuat ulang
+    // Gunakan header khusus dengan logo besar di tengah
+    // Hapus header default yang dibuat BaseScene.createTitleArea()
+    this.titleText?.destroy();
+    this.titleUnderline?.destroy();
+
+    this.createCenteredLogoTitleArea();
+    this.ensureBackIcon(false); // main menu tidak punya back
+
+    // Bersihkan tombol lama jika ada
     try { this.buttons.forEach(b => b.destroy()); } catch {}
     this.buttons = [];
 
-    this.ensureBackIcon(false);
-    this.drawLogoInHeader(160, 12);
+    const heightPx = Math.max(
+      48,
+      Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
+    );
 
-    const labels = [
-      t('mainPlay') ?? 'Play',
-      t('mainLeaderboard') ?? 'Leaderboard',
-      t('mainAchievement') ?? 'Achievement',
-      t('mainOptions') ?? 'Options',
-      t('credits') ?? 'credits',
-    ];
-    const actions: Array<() => void> = [
-      () => this.scene.start('PilihModeScene'),
-      () => this.scene.start('LeaderboardModeScene'),
-      () => this.scene.start('AchievementScene'),
-      () => this.scene.start('OptionScene'),
-      () => this.scene.start('CreditScene'),
+    const items = [
+      {
+        key: 'menuPlay',
+        fallback: 'Start',
+        onTap: () => this.scene.start('PilihKesulitanScene'),
+      },
+      {
+        key: 'menuLeaderboard',
+        fallback: 'Leaderboard',
+        onTap: () => this.scene.start('LeaderboardModeScene'),
+      },
+      {
+        key: 'menuAchievements',
+        fallback: 'Achievements',
+        onTap: () => {
+          // Pastikan key ini sama dengan super('AchievementScene') dan di main.ts
+          this.scene.start('AchievementScene');
+        },
+      },
+      {
+        key: 'menuOptions',
+        fallback: 'Options',
+        onTap: () => this.scene.start('OptionScene'),
+      },
+      {
+        key: 'menuCredits',
+        fallback: 'Credits',
+        onTap: () => this.scene.start('CreditScene'),
+      },
     ];
 
-    const heightPx = Math.max(56, Math.round(Math.min(this.scale.width, this.scale.height) * 0.07));
-    labels.forEach((label, i) => {
-      const btn = this.createWidePill(label, () => { this.playSound('sfx_click'); actions[i]!(); }, 0.86, heightPx);
-      this.buttons.push(btn);
-    });
-    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.25));
+    this.buttons = items.map(item =>
+      this.createWidePill(
+        t(item.key) ?? item.fallback,
+        () => {
+          this.playSound('sfx_click');
+          item.onTap();
+        },
+        0.86,
+        heightPx,
+      ),
+    );
+
+    this.layoutPillsCentered(
+      this.buttons,
+      heightPx,
+      Math.round(heightPx * 0.24),
+    );
   }
 
   public override draw() {
+    if (!this.buttons || this.buttons.length === 0) {
+      this.ensureBackIcon(false);
+      this.setTitle(t('mainTitle') ?? 'Road Knowledge');
+      return;
+    }
+
     this.ensureBackIcon(false);
-    this.drawLogoInHeader(160, 12);
-    const heightPx = Math.max(56, Math.round(Math.min(this.scale.width, this.scale.height) * 0.07));
-    this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.25));
+    this.setTitle(t('mainTitle') ?? 'Road Knowledge');
+
+    const heightPx = Math.max(
+      48,
+      Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
+    );
+    this.layoutPillsCentered(
+      this.buttons,
+      heightPx,
+      Math.round(heightPx * 0.24),
+    );
   }
 }

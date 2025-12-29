@@ -29,6 +29,7 @@ class BootScene extends Phaser.Scene {
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.CANVAS,
   parent: 'game',
+  backgroundColor: '#ffffff',                           // ← TAMBAHKAN BARIS INI
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
   audio: { disableWebAudio: false },
   render: { roundPixels: true, antialias: true, pixelArt: false },
