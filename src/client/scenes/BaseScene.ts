@@ -44,6 +44,47 @@ export class BaseScene extends Phaser.Scene {
       this.draw();
     });
   }
+  
+  protected createCenteredLogoTitleArea() {
+  const base = Math.min(this.scale.width, this.scale.height);
+  const targetHeight = Math.round(base * 0.18); // tinggi yang kita mau
+
+  const logo = this.add
+    .image(this.centerX, this.scale.height * 0.16, 'logo')
+    .setOrigin(0.5);
+
+  // scale berdasarkan tinggi saja, biarkan lebar mengikuti aspect ratio asli
+  const originalHeight = logo.height || 1;
+  const scale = targetHeight / originalHeight;
+  logo.setScale(scale);
+
+  const titleSize = Math.max(
+    22,
+    Math.round(base * 0.065),
+  );
+  const titleY = logo.y + targetHeight * 0.75;
+
+  this.titleText = this.add
+    .text(this.centerX, titleY, '', {
+      fontFamily: 'Nunito',
+      fontSize: `${titleSize}px`,
+      color: '#000000',
+    })
+    .setOrigin(0.5);
+
+  const underlineY = titleY + Math.round(base * 0.05);
+  this.titleUnderline = this.add
+    .line(
+      this.centerX,
+      underlineY,
+      -this.panelWidth / 2,
+      0,
+      this.panelWidth / 2,
+      0,
+      0xe0e0e0,
+    )
+    .setLineWidth(1, 1);
+}
 
   /**
    * Default header: hanya title text di tengah + garis bawah, TANPA logo besar.

@@ -11,15 +11,13 @@ export class MainMenuScene extends BaseScene {
   public override create() {
     super.create();
 
-    // Gunakan header khusus dengan logo besar di tengah
-    // Hapus header default yang dibuat BaseScene.createTitleArea()
+    // Ganti header default dengan logo besar di tengah
     this.titleText?.destroy();
     this.titleUnderline?.destroy();
 
     this.createCenteredLogoTitleArea();
     this.ensureBackIcon(false); // main menu tidak punya back
 
-    // Bersihkan tombol lama jika ada
     try { this.buttons.forEach(b => b.destroy()); } catch {}
     this.buttons = [];
 
@@ -32,7 +30,7 @@ export class MainMenuScene extends BaseScene {
       {
         key: 'menuPlay',
         fallback: 'Start',
-        onTap: () => this.scene.start('PilihKesulitanScene'),
+        onTap: () => this.scene.start('PilihModeScene'),
       },
       {
         key: 'menuLeaderboard',
@@ -42,10 +40,7 @@ export class MainMenuScene extends BaseScene {
       {
         key: 'menuAchievements',
         fallback: 'Achievements',
-        onTap: () => {
-          // Pastikan key ini sama dengan super('AchievementScene') dan di main.ts
-          this.scene.start('AchievementScene');
-        },
+        onTap: () => this.scene.start('AchievementScene'),
       },
       {
         key: 'menuOptions',
