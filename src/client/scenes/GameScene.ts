@@ -4,9 +4,15 @@ import { SettingsManager } from '../lib/Settings';
 import { getQuestionsForVersion } from '../version';
 
 type Mode = 'belajar' | 'survive';
+
 type DifficultyConfig = {
-  totalQuestions: number; totalTime: number; perQuestionTime: number;
-  initialLives: number; scoreBase: number; timeMultiplier: number; timeCeiling: boolean;
+  totalQuestions: number;
+  totalTime: number;
+  perQuestionTime: number;
+  initialLives: number;
+  scoreBase: number;
+  timeMultiplier: number;
+  timeCeiling: boolean;
 };
 
 const difficultySettings: Record<DifficultyKey, DifficultyConfig> = {
@@ -34,14 +40,17 @@ export class Game extends BaseScene {
   private scoreText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
-  // FIX TypeScript: jangan pakai nama titleText (sudah ada di BaseScene)
   private questionTitle!: Phaser.GameObjects.Text;
 
   private optionButtons: Phaser.GameObjects.Container[] = [];
+  private surrenderBtn?: Phaser.GameObjects.Container;
   private isLocked = false;
   private achievementPopup?: Phaser.GameObjects.Container;
 
-  constructor() { super('GameScene'); }
+  constructor() {
+    super('Game');
+  }
+
   override init(data: { mode?: Mode; difficulty?: DifficultyKey }) {
     if (data?.mode) this.mode = data.mode;
     if (data?.difficulty) this.difficulty = data.difficulty;
@@ -50,7 +59,7 @@ export class Game extends BaseScene {
 
   public override create() {
     super.create();
-    this.hideBackIcon();
+    this.ensureBackIcon(false);
 
     this.resetState();
     this.buildHUD();
@@ -62,26 +71,185 @@ export class Game extends BaseScene {
     this.events.once('destroy', this.onShutdown, this);
   }
 
-  private buildHUD() {
-    const hudY = this.panelTop + Math.min(this.getHeaderAreaHeight() - 20, 20);
-    const fontPx = Math.max(14, Math.round(Math.min(this.scale.width, this.scale.height) * 0.04));
-    this.scoreText = this.add.text(this.panelLeft + 16, hudY, `Score: ${this.score.toFixed(1)}`, { fontFamily: 'Nunito', fontSize: `${fontPx}px`, color: '#000' }).setOrigin(0, 0.5);
-    const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
-    this.timerText = this.add.text(this.centerX, hudY, `Waktu: ${timeVal}`, { fontFamily: 'Nunito', fontSize: `${fontPx}px`, color: '#000' }).setOrigin(0.5, 0.5);
-    this.livesText = this.add.text(this.panelLeft + this.panelWidth - 16, hudY, `Nyawa: ${this.lives}`, { fontFamily: 'Nunito', fontSize: `${fontPx}px`, color: '#000' }).setOrigin(1, 0.5);
-    if (this.mode === 'belajar') this.livesText.setVisible(false);
+  // ==== LAYOUT ======================================================
 
-    const qTitleSize = Math.max(22, Math.round(Math.min(this.scale.width, this.scale.height) * 0.042));
-    this.questionTitle = this.add.text(this.centerX, hudY + 40, 'Pertanyaan', { fontFamily: 'Nunito', fontSize: `${qTitleSize}px`, color: '#000' }).setOrigin(0.5, 0.5);
-    this.add.line(this.centerX, this.questionTitle.y + 24, this.panelLeft + 12, 0, this.panelLeft + this.panelWidth - 12, 0, 0xdddddd).setOrigin(0.5, 0).setLineWidth(2);
+  /** Bangun HUD + garis + tombol surrender, dengan layout terpusat dan rapi */
+  private buildHUD() {
+  const base = Math.min(this.scale.width, this.scale.height);
+  const contentTop = this.getContentAreaTop();
+
+  // Tinggi dasar HUD sedikit di bawah garis title BaseScene
+  const hudY = contentTop + Math.round(base * 0.008);
+
+  const fontPx = Math.max(14, Math.round(base * 0.038));
+
+  // === Surrender di pojok kiri atas ===
+  const surrenderSize = Math.max(32, Math.round(base * 0.06));
+
+const iconX =
+  this.centerX - this.panelWidth / 2 + 16 + surrenderSize / 2;
+const iconY = hudY;
+
+const img = this.add
+  .image(iconX, iconY, 'btn_surrender')
+  .setDisplaySize(surrenderSize, surrenderSize)
+  .setOrigin(0.5)
+  .setInteractive({ useHandCursor: true });
+
+img.on('pointerup', () => {
+  this.playSound('sfx_click');
+  this.endGame();
+});
+
+this.surrenderBtn = this.add.container(0, 0, [img]);
+
+  // === Score dan Waktu di tengah atas (2 baris) ===
+  const centerX = this.centerX;
+  const lineGap = Math.round(fontPx * 1.1);
+
+  this.scoreText = this.add
+    .text(centerX, hudY - lineGap / 2, `Score: ${this.score.toFixed(1)}`, {
+      fontFamily: 'Nunito',
+      fontSize: `${fontPx}px`,
+      color: '#000',
+    })
+    .setOrigin(0.5, 0.5);
+
+  const timeVal =
+    this.mode === 'survive'
+      ? this.perQuestionRemaining
+      : this.sessionTimeRemaining;
+
+  this.timerText = this.add
+    .text(centerX, hudY + lineGap / 2, `Waktu: ${timeVal}`, {
+      fontFamily: 'Nunito',
+      fontSize: `${fontPx}px`,
+      color: '#000',
+    })
+    .setOrigin(0.5, 0.5);
+
+  // === Nyawa di kanan atas ===
+  this.livesText = this.add
+    .text(
+      this.centerX + this.panelWidth / 2 - 16,
+      hudY,
+      `Nyawa: ${this.lives}`,
+      {
+        fontFamily: 'Nunito',
+        fontSize: `${fontPx}px`,
+        color: '#000',
+      },
+    )
+    .setOrigin(1, 0.5);
+  if (this.mode === 'belajar') {
+    this.livesText.setVisible(false);
   }
 
+  // === Teks pertanyaan (judul soal) di bawah HUD ===
+  const questionTop = hudY + surrenderH + Math.round(base * 0.02);
+const qFont = Math.max(18, Math.round(base * 0.042));
+
+this.questionTitle = this.add
+  .text(this.centerX, questionTop, 'Pertanyaan', {
+    fontFamily: 'Nunito',
+    fontSize: `${qFont}px`,
+    color: '#000',
+    align: 'center',
+    wordWrap: { width: this.panelWidth * 0.9 }, // wrap SEKALI di sini
+  })
+  .setOrigin(0.5, 0);
+
+  // Garis pemisah di bawah teks pertanyaan
+  const underY =
+    this.questionTitle.y +
+    this.questionTitle.height +
+    Math.round(base * 0.015);
+
+  this.add
+    .line(
+      this.centerX,
+      underY,
+      this.centerX - this.panelWidth / 2 + 12,
+      0,
+      this.centerX + this.panelWidth / 2 - 12,
+      0,
+      0xdddddd,
+    )
+    .setOrigin(0.5, 0)
+    .setLineWidth(2, 2);
+}
+
+  public override draw() {
+  const base = Math.min(this.scale.width, this.scale.height);
+  const contentTop = this.getContentAreaTop();
+  const hudY = contentTop + Math.round(base * 0.01);
+  const fontPx = Math.max(14, Math.round(base * 0.038));
+  const lineGap = Math.round(fontPx * 1.1);
+
+  // Surrender kiri atas
+if (this.surrenderBtn) {
+  const surrenderSize = Math.max(32, Math.round(base * 0.06));
+  const iconX =
+    this.centerX - this.panelWidth / 2 + 16 + surrenderSize / 2;
+  const iconY = hudY;
+  this.surrenderBtn.setPosition(iconX - this.centerX, iconY - this.centerY);
+  // atau lebih simpel: simpan img sebagai field terpisah, dan langsung setPosition(img)
+}
+
+  // Score / Waktu tengah atas
+  this.scoreText
+    ?.setPosition(this.centerX, hudY - lineGap / 2);
+
+  const timeVal =
+    this.mode === 'survive'
+      ? this.perQuestionRemaining
+      : this.sessionTimeRemaining;
+  this.timerText
+    ?.setPosition(this.centerX, hudY + lineGap / 2)
+    .setText(`Waktu: ${timeVal}`);
+
+  // Nyawa kanan atas
+  if (this.mode === 'survive') {
+    this.livesText
+      ?.setPosition(this.centerX + this.panelWidth / 2 - 16, hudY)
+      .setVisible(true)
+      .setText(`Nyawa: ${this.lives}`);
+  } else {
+    this.livesText?.setVisible(false);
+  }
+
+  // Pertanyaan tetap center, wordWrap sudah di set di buildHUD
+  if (this.questionTitle) {
+    const questionTop =
+      hudY +
+      Math.max(32, Math.round(base * 0.045)) +
+      Math.round(base * 0.02);
+    this.questionTitle
+      .setPosition(this.centerX, questionTop)
+      //.setWordWrapWidth(this.panelWidth * 0.9, true);
+  }
+}
+
+  // ==== GAME LOGIC (as in your file, hanya sedikit dirapikan) =======
+
   private resetState() {
-    this.score = 0; this.currentQuestionIndex = 0; this.isLocked = false;
-    if (this.mode === 'survive') { this.lives = this.cfg.initialLives; this.perQuestionRemaining = this.cfg.perQuestionTime; this.sessionTimeRemaining = 0; }
-    else { this.lives = 0; this.sessionTimeRemaining = this.cfg.totalTime; this.perQuestionRemaining = 0; }
+    this.score = 0;
+    this.currentQuestionIndex = 0;
+    this.isLocked = false;
+
+    if (this.mode === 'survive') {
+      this.lives = this.cfg.initialLives;
+      this.perQuestionRemaining = this.cfg.perQuestionTime;
+      this.sessionTimeRemaining = 0;
+    } else {
+      this.lives = 0;
+      this.sessionTimeRemaining = this.cfg.totalTime;
+      this.perQuestionRemaining = 0;
+    }
+
     this.clearOptionButtons();
-    this.timerEvent?.remove(); this.timerEvent = null;
+    this.timerEvent?.remove();
+    this.timerEvent = null;
   }
 
   private prepareQuestions() {
@@ -95,8 +263,11 @@ export class Game extends BaseScene {
   private startTimer() {
     this.timerEvent?.remove();
     this.timerEvent = this.time.addEvent({
-      delay: 1000, loop: true, callback: () => {
+      delay: 1000,
+      loop: true,
+      callback: () => {
         if (!this.scene.isActive()) return;
+
         if (this.mode === 'survive') {
           if (this.perQuestionRemaining > 0) {
             this.perQuestionRemaining -= 1;
@@ -110,92 +281,182 @@ export class Game extends BaseScene {
             if (this.sessionTimeRemaining === 0) this.endGame();
           }
         }
-      }
+      },
     });
   }
 
   private handleTimeoutSurvive() {
     this.lives = Math.max(0, this.lives - 1);
     this.livesText?.setText(`Nyawa: ${this.lives}`);
-    if (this.lives <= 0) { this.endGame(); return; }
+    if (this.lives <= 0) {
+      this.endGame();
+      return;
+    }
     this.currentQuestionIndex += 1;
     this.perQuestionRemaining = this.cfg.perQuestionTime;
     this.showQuestion();
   }
 
   private showQuestion() {
-    this.clearOptionButtons(); this.isLocked = false;
-    const q = this.questions[this.currentQuestionIndex]; if (!q) { this.endGame(); return; }
+  this.clearOptionButtons();
+  this.isLocked = false;
 
-    if (this.mode === 'survive') { this.perQuestionRemaining = this.cfg.perQuestionTime; this.timerText?.setText(`Waktu: ${this.perQuestionRemaining}`); }
-    this.questionStartMs = this.time.now;
-
-    const heightPx = Math.max(48, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
-    const startY = this.questionTitle.y + Math.round(heightPx * 1.3);
-    q.options.forEach((opt, i) => {
-      const btn = this.createWidePill(opt, () => this.onChoose(i), 0.86, heightPx);
-      btn.setPosition(this.centerX, startY + i * Math.max(heightPx * 1.2, Math.round(this.scale.height * 0.09)));
-      this.optionButtons.push(btn);
-    });
+  const q = this.questions[this.currentQuestionIndex];
+  if (!q) {
+    this.endGame();
+    return;
   }
 
+  // Set teks pertanyaan dari bank soal (multiline, center)
+  const text = (q as any).text ?? (q as any).question ?? 'Pertanyaan';
+  if (this.questionTitle) {
+    this.questionTitle.setText(text);
+  }
+
+  if (this.mode === 'survive') {
+    this.perQuestionRemaining = this.cfg.perQuestionTime;
+    this.timerText?.setText(`Waktu: ${this.perQuestionRemaining}`);
+  }
+
+  this.questionStartMs = this.time.now;
+
+  const heightPx = Math.max(
+    48,
+    Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
+  );
+
+  // Tombol mulai agak di bawah garis pertanyaan
+  const startY =
+    this.questionTitle.y +
+    this.questionTitle.height +
+    Math.round(heightPx * 0.8);
+
+  const gap = Math.round(heightPx * 0.3);
+  const containers: Phaser.GameObjects.Container[] = [];
+
+  q.options.forEach((opt, i) => {
+    const btn = this.createWidePill(
+      opt,
+      () => this.onChoose(i),
+      0.86,
+      heightPx,
+    );
+    btn.setPosition(this.centerX, startY + i * (heightPx + gap));
+    containers.push(btn);
+  });
+
+  this.optionButtons = containers;
+}
+
   private onChoose(optionIndex: number) {
-    if (this.isLocked) return; this.isLocked = true;
-    const q = this.questions[this.currentQuestionIndex]; if (!q) return;
-    const correctIdx = (q as any).answerIndex ?? (q as any).correctAnswerIndex ?? -1;
+    if (this.isLocked) return;
+    this.isLocked = true;
+
+    const q = this.questions[this.currentQuestionIndex];
+    if (!q) return;
+
+    const correctIdx =
+      (q as any).answerIndex ?? (q as any).correctAnswerIndex ?? -1;
     const correct = optionIndex === correctIdx;
 
     if (this.mode === 'belajar') {
-      const elapsed = Math.max(0, Math.min(10, Math.floor((this.time.now - this.questionStartMs) / 1000)));
-      const add = correct ? (this.cfg.scoreBase + Math.max(0, (10 - elapsed)) * this.cfg.timeMultiplier) : 0;
-      if (correct) { this.score += add; this.scoreText?.setText(`Score: ${this.score.toFixed(1)}`); this.showAchievementPopup('Achievement'); this.gotoNext(220); }
-      else { this.gotoNext(900); }
+      const elapsed = Math.max(
+        0,
+        Math.min(10, Math.floor((this.time.now - this.questionStartMs) / 1000)),
+      );
+      const add = correct
+        ? this.cfg.scoreBase +
+          Math.max(0, 10 - elapsed) * this.cfg.timeMultiplier
+        : 0;
+      if (correct) {
+        this.score += add;
+        this.scoreText?.setText(`Score: ${this.score.toFixed(1)}`);
+        this.showAchievementPopup('Achievement');
+        this.gotoNext(220);
+      } else {
+        this.gotoNext(900);
+      }
     } else {
-      if (correct) { this.score += 10; this.scoreText?.setText(`Score: ${this.score.toFixed(1)}`); }
-      else { this.lives = Math.max(0, this.lives - 1); this.livesText?.setText(`Nyawa: ${this.lives}`); if (this.lives <= 0) { this.endGame(); return; } }
+      if (correct) {
+        this.score += 10;
+        this.scoreText?.setText(`Score: ${this.score.toFixed(1)}`);
+      } else {
+        this.lives = Math.max(0, this.lives - 1);
+        this.livesText?.setText(`Nyawa: ${this.lives}`);
+        if (this.lives <= 0) {
+          this.endGame();
+          return;
+        }
+      }
       this.currentQuestionIndex += 1;
-      if (this.currentQuestionIndex >= this.cfg.totalQuestions) { this.endGame(); return; }
+      if (this.currentQuestionIndex >= this.cfg.totalQuestions) {
+        this.endGame();
+        return;
+      }
       const delay = correct ? 150 : 700;
-      this.time.delayedCall(delay, () => { this.perQuestionRemaining = this.cfg.perQuestionTime; this.showQuestion(); });
+      this.time.delayedCall(delay, () => {
+        this.perQuestionRemaining = this.cfg.perQuestionTime;
+        this.showQuestion();
+      });
     }
   }
 
   private gotoNext(delayMs = 400) {
     this.time.delayedCall(delayMs, () => {
       this.currentQuestionIndex += 1;
-      if (this.currentQuestionIndex >= this.cfg.totalQuestions) { this.endGame(); return; }
+      if (this.currentQuestionIndex >= this.cfg.totalQuestions) {
+        this.endGame();
+        return;
+      }
       this.showQuestion();
     });
   }
 
   private showAchievementPopup(text: string) {
-    try { this.achievementPopup?.destroy(true); } catch {}
+    try {
+      this.achievementPopup?.destroy(true);
+    } catch {}
     const w = Math.min(280, Math.round(this.panelWidth * 0.7));
     const h = 40;
     const c = this.add.container(0, 0).setDepth(999);
     const bg = this.add.graphics();
     bg.lineStyle(2, 0x000000, 1).fillStyle(0xffffff, 1);
-    bg.fillRoundedRect(this.centerX - w / 2, this.panelTop + 12, w, h, 10);
-    bg.strokeRoundedRect(this.centerX - w / 2, this.panelTop + 12, w, h, 10);
-    const t = this.add.text(this.centerX, this.panelTop + 12 + h / 2, text, { fontFamily: 'Nunito', fontSize: '16px', color: '#000' }).setOrigin(0.5);
-    c.add([bg, t]); this.achievementPopup = c;
-    this.time.delayedCall(1200, () => { try { this.achievementPopup?.destroy(true); } catch {} });
+    bg.fillRoundedRect(this.centerX - w / 2, this.getContentAreaTop() - h - 8, w, h, 10);
+    bg.strokeRoundedRect(this.centerX - w / 2, this.getContentAreaTop() - h - 8, w, h, 10);
+    const t = this.add
+      .text(this.centerX, this.getContentAreaTop() - h / 2 - 8, text, {
+        fontFamily: 'Nunito',
+        fontSize: '16px',
+        color: '#000',
+      })
+      .setOrigin(0.5);
+    c.add([bg, t]);
+    this.achievementPopup = c;
+    this.time.delayedCall(1200, () => {
+      try {
+        this.achievementPopup?.destroy(true);
+      } catch {}
+    });
   }
 
-  private clearOptionButtons() { this.optionButtons.forEach(b => b.destroy()); this.optionButtons = []; }
+  private clearOptionButtons() {
+    this.optionButtons.forEach(b => b.destroy());
+    this.optionButtons = [];
+  }
 
-  private endGame() { this.timerEvent?.remove(); this.timerEvent = null; this.scene.start('ResultsScene', { score: this.score, mode: this.mode }); }
+  private endGame() {
+    this.timerEvent?.remove();
+    this.timerEvent = null;
+    this.scene.start('ResultsScene', { score: this.score, mode: this.mode });
+  }
 
-  private onShutdown() { this.timerEvent?.remove(); this.timerEvent = null; this.clearOptionButtons(); this.input.removeAllListeners(); try { this.achievementPopup?.destroy(true); } catch {} }
-
-  public override draw() {
-    const hudY = this.panelTop + Math.min(this.getHeaderAreaHeight() - 20, 20);
-    const fontPx = Math.max(14, Math.round(Math.min(this.scale.width, this.scale.height) * 0.04));
-    this.scoreText?.setPosition(this.panelLeft + 16, hudY).setStyle({ fontSize: `${fontPx}px` });
-    const timeVal = this.mode === 'survive' ? this.perQuestionRemaining : this.sessionTimeRemaining;
-    this.timerText?.setPosition(this.centerX, hudY).setText(`Waktu: ${timeVal}`).setStyle({ fontSize: `${fontPx}px` });
-    if (this.mode === 'survive') this.livesText?.setPosition(this.panelLeft + this.panelWidth - 16, hudY).setVisible(true).setText(`Nyawa: ${this.lives}`).setStyle({ fontSize: `${fontPx}px` });
-    else this.livesText?.setVisible(false);
-    this.questionTitle?.setPosition(this.centerX, hudY + 40);
+  private onShutdown() {
+    this.timerEvent?.remove();
+    this.timerEvent = null;
+    this.clearOptionButtons();
+    this.input.removeAllListeners();
+    try {
+      this.achievementPopup?.destroy(true);
+    } catch {}
   }
 }

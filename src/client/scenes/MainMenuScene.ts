@@ -27,44 +27,45 @@ export class MainMenuScene extends BaseScene {
     );
 
     const items = [
-      {
-        key: 'menuPlay',
-        fallback: 'Start',
-        onTap: () => this.scene.start('PilihModeScene'),
-      },
-      {
-        key: 'menuLeaderboard',
-        fallback: 'Leaderboard',
-        onTap: () => this.scene.start('LeaderboardModeScene'),
-      },
-      {
-        key: 'menuAchievements',
-        fallback: 'Achievements',
-        onTap: () => this.scene.start('AchievementScene'),
-      },
-      {
-        key: 'menuOptions',
-        fallback: 'Options',
-        onTap: () => this.scene.start('OptionScene'),
-      },
-      {
-        key: 'menuCredits',
-        fallback: 'Credits',
-        onTap: () => this.scene.start('CreditScene'),
-      },
-    ];
+  {
+    key: 'mainPlay' as const,
+    fallback: 'Start',
+    onTap: () => this.scene.start('PilihModeScene'),
+  },
+  {
+    key: 'mainLeaderboard' as const,
+    fallback: 'Leaderboard',
+    onTap: () => this.scene.start('LeaderboardModeScene'),
+  },
+  {
+    key: 'mainAchievement' as const,
+    fallback: 'Achievement',
+    onTap: () => this.scene.start('AchievementScene'),
+  },
+  {
+    key: 'mainOptions' as const,
+    fallback: 'Options',
+    onTap: () => this.scene.start('OptionScene'),
+  },
+  {
+    // Kalau nanti mau Quit beneran, bisa diubah
+    key: 'mainQuit' as const,
+    fallback: 'Credits',
+    onTap: () => this.scene.start('CreditScene'),
+  },
+];
 
     this.buttons = items.map(item =>
-      this.createWidePill(
-        t(item.key) ?? item.fallback,
-        () => {
-          this.playSound('sfx_click');
-          item.onTap();
-        },
-        0.86,
-        heightPx,
-      ),
-    );
+  this.createWidePill(
+    t(item.key) ?? item.fallback,
+    () => {
+      this.playSound('sfx_click');
+      item.onTap();
+    },
+    0.86,
+    heightPx,
+  ),
+);
 
     this.layoutPillsCentered(
       this.buttons,

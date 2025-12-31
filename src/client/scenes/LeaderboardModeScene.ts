@@ -14,7 +14,9 @@ export class LeaderboardModeScene extends BaseScene {
     this.ensureBackIcon(true);
     this.setTitle(t('leaderboardTitle') ?? 'Leaderboard');
 
-    try { this.buttons.forEach(b => b.destroy()); } catch {}
+    try {
+      this.buttons.forEach(b => b.destroy());
+    } catch {}
     this.buttons = [];
 
     const heightPx = Math.max(
@@ -30,8 +32,12 @@ export class LeaderboardModeScene extends BaseScene {
       },
       {
         label: t('leaderboardModeSurvive') ?? 'Mode Survive',
+        // LANGSUNG ke leaderboard, tanpa pilih tingkat kesulitan
         onTap: () =>
-          this.scene.start('LeaderboardCategoryScene', { mode: 'survive' }),
+          this.scene.start('LeaderboardScene', {
+            mode: 'survive',
+            difficulty: null,
+          }),
       },
     ];
 

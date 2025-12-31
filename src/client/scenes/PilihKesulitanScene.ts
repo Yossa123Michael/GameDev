@@ -1,5 +1,9 @@
 import { BaseScene } from './BaseScene';
-import { t } from '../lib/i18n';
+import { t, getLang } from '../lib/i18n';
+
+function currentLangIsId() {
+  return getLang() === 'id';
+}
 
 export class PilihKesulitanScene extends BaseScene {
   private mode: 'belajar' | 'survive' = 'belajar';
@@ -27,39 +31,39 @@ export class PilihKesulitanScene extends BaseScene {
     );
 
     const items = [
-      {
-        label: t('diffEasy') ?? 'Mudah',
-        go: () =>
-          this.scene.start('Game', {
-            mode: this.mode,
-            difficulty: 'mudah',
-          }),
-      },
-      {
-        label: t('diffMedium') ?? 'Menengah',
-        go: () =>
-          this.scene.start('Game', {
-            mode: this.mode,
-            difficulty: 'menengah',
-          }),
-      },
-      {
-        label: t('diffHard') ?? 'Sulit',
-        go: () =>
-          this.scene.start('Game', {
-            mode: this.mode,
-            difficulty: 'sulit',
-          }),
-      },
-      {
-        label: 'Pro',
-        go: () =>
-          this.scene.start('Game', {
-            mode: this.mode,
-            difficulty: 'pro',
-          }),
-      },
-    ];
+  {
+    label: currentLangIsId() ? 'Mudah' : 'Easy',
+    go: () =>
+      this.scene.start('Game', {
+        mode: this.mode,
+        difficulty: 'mudah',
+      }),
+  },
+  {
+    label: currentLangIsId() ? 'Menengah' : 'Medium',
+    go: () =>
+      this.scene.start('Game', {
+        mode: this.mode,
+        difficulty: 'menengah',
+      }),
+  },
+  {
+    label: currentLangIsId() ? 'Sulit' : 'Hard',
+    go: () =>
+      this.scene.start('Game', {
+        mode: this.mode,
+        difficulty: 'sulit',
+      }),
+  },
+  {
+    label: 'Pro',
+    go: () =>
+      this.scene.start('Game', {
+        mode: this.mode,
+        difficulty: 'pro',
+      }),
+  },
+];
 
     this.buttons = items.map(it =>
       this.createWidePill(

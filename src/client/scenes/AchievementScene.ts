@@ -1,9 +1,12 @@
 import { BaseScene } from './BaseScene';
+import { t } from '../lib/i18n';
 
 export class AchievementScene extends BaseScene {
   private rows: Phaser.GameObjects.Container[] = [];
 
-  constructor() { super('AchievementScene'); }
+  constructor() {
+    super('AchievementScene');
+  }
 
   public override create() {
     super.create();
@@ -11,7 +14,6 @@ export class AchievementScene extends BaseScene {
     this.ensureBackIcon(true);
     this.setTitle(t('achievementTitle') ?? 'Achievement');
 
-    // PENTING: bersihkan sebelum bikin lagi
     try { this.rows.forEach(r => r.destroy()); } catch {}
     this.rows = [];
 
@@ -20,12 +22,33 @@ export class AchievementScene extends BaseScene {
       Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
     );
 
-    // bangun ulang rows
-    const items = [
-      /* kategori A, B, dll, masing2 createWidePill atau container */
-    ];
+    const makeSectionLabel = (key: keyof typeof import('../lib/i18n').dicts['id']) => {
+      const text = t(key);
+      const lbl = this.add
+        .text(this.centerX, 0, text, {
+          fontFamily: 'Nunito',
+          fontSize: `${Math.max(16, Math.round(heightPx * 0.4))}px`,
+          color: '#000000',
+        })
+        .setOrigin(0.5);
+      return this.add.container(0, 0, [lbl]);
+    };
 
-    this.rows = items.map(/* ...buat container... */);
+    const items: Phaser.GameObjects.Container[] = [];
+
+    items.push(
+      makeSectionLabel('achievementSectionStart'),
+      this.createWidePill('Icon • Icon • Icon', () => {}, 0.86, heightPx),
+      this.createWidePill('Icon • Icon • Icon', () => {}, 0.86, heightPx),
+      makeSectionLabel('achievementSectionScore'),
+      this.createWidePill('Icon • Icon • Icon', () => {}, 0.86, heightPx),
+      makeSectionLabel('achievementSectionCombo'),
+      this.createWidePill('Icon • Icon • Icon', () => {}, 0.86, heightPx),
+      makeSectionLabel('achievementSectionCollect'),
+      this.createWidePill('Icon • Icon • Icon', () => {}, 0.86, heightPx),
+    );
+
+    this.rows = items;
 
     this.layoutPillsCentered(
       this.rows,
@@ -44,6 +67,7 @@ export class AchievementScene extends BaseScene {
       48,
       Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
     );
+
     this.layoutPillsCentered(
       this.rows,
       heightPx,
