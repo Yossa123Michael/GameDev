@@ -71,20 +71,12 @@ export class ResultsScene extends BaseScene {
     );
     const yBase = this.getContentAreaTop() + heightPx;
 
-    const scoreFont = Math.max(
-      24,
-      Math.round(Math.min(this.scale.width, this.scale.height) * 0.04),
-    );
-
-    this.scoreText
-      .setPosition(this.centerX, yBase)
-      .setStyle({ fontSize: `${scoreFont}px` });
+    // HANYA pindahkan posisi; JANGAN setText / setStyle di sini
+    this.scoreText.setPosition(this.centerX, yBase);
 
     this.menuBtn.setPosition(
       this.centerX,
       yBase + Math.round(heightPx * 1.6),
     );
-
-    // Biarkan createWidePill mengatur graphics; tidak perlu set width/height manual
   }
 }

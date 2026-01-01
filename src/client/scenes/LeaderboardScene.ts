@@ -51,22 +51,15 @@ export class LeaderboardScene extends BaseScene {
   }
 
   public override draw() {
-    this.ensureBackIcon(true);
-    this.setTitle('LeaderBoard');
+  this.ensureBackIcon(true);
+  this.setTitle('LeaderBoard');
 
-    if (!this.emptyText) return;
+  if (!this.emptyText) return;
 
-    const fontSize = Math.max(
-      16,
-      Math.round(Math.min(this.scale.width, this.scale.height) * 0.03),
-    );
-
-    this.emptyText
-      .setPosition(
-        this.centerX,
-        this.getContentAreaTop() +
-          Math.round(this.getContentAreaHeight() / 2),
-      )
-      .setStyle({ fontSize: `${fontSize}px` });
-  }
+  // Kalau mau responsif, boleh hitung fontSize lagi, tapi JANGAN setStyle
+  const y =
+    this.getContentAreaTop() +
+    Math.round(this.getContentAreaHeight() / 2);
+  this.emptyText.setPosition(this.centerX, y);
+}
 }

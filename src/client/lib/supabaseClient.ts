@@ -1,13 +1,24 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+let supabase: SupabaseClient | null = null;
 
-export const supabase = createClient(url, anon);
+export function getSupabaseClient() {
+  if (!supabase) {
+    supabase = createClient(
+      import.meta.env.VITE_SUPABASE_URL!,
+      import.meta.env.VITE_SUPABASE_ANON_KEY!,
+    );
+  }
+  return supabase;
+}
 
+// Fungsi yang diharapkan main.ts
 export async function ensureAnonAuth() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) await supabase.auth.signInAnonymously();
-  } catch {}
+  const client = getSupabaseClient();
+  const { data, error } = await client.auth.getSession();
+  if (error) {
+    console.error('Supabase getSession error', error);
+  }
+  // kalau tidak ada session, biarkan Supabase pakai anon key default
+  return data;
 }

@@ -256,6 +256,15 @@ private buildSimpleModal(
     ]);
   }
 
+protected updateGlobalBgmFromSettings() {
+  const s = SettingsManager.get();
+  const list = this.sound.getAll('bgm') as Phaser.Sound.BaseSound[];
+  const bgm = list[0];
+  if (!bgm) return;
+  bgm.setMute(!s.musicOn);
+  bgm.setVolume(s.musicVol ?? 0.8);
+}
+
   public override draw() {
     if (!this.rows || this.rows.length === 0) return;
 

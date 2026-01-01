@@ -32,6 +32,8 @@ export class Game extends BaseScene {
   private score = 0;
   private lives = 0;
 
+  private currentShuffledAnswers: { text: string; isCorrect: boolean }[] = [];
+
   private sessionTimeRemaining = 0;
   private perQuestionRemaining = 0;
   private questionStartMs = 0;
@@ -43,9 +45,24 @@ export class Game extends BaseScene {
   private questionTitle!: Phaser.GameObjects.Text;
 
   private optionButtons: Phaser.GameObjects.Container[] = [];
-  private surrenderBtn?: Phaser.GameObjects.Container;
+  private surrenderIcon?: Phaser.GameObjects.Image;
   private isLocked = false;
   private achievementPopup?: Phaser.GameObjects.Container;
+
+  private confirmOverlay?: Phaser.GameObjects.Rectangle;
+  private confirmModal?: Phaser.GameObjects.Container;
+
+  private closeConfirmModal() {
+  try {
+    this.confirmOverlay?.destroy();
+  } catch {}
+  this.confirmOverlay = undefined;
+
+  try {
+    this.confirmModal?.destroy(true);
+  } catch {}
+  this.confirmModal = undefined;
+}
 
   constructor() {
     super('Game');
@@ -78,32 +95,29 @@ export class Game extends BaseScene {
   const base = Math.min(this.scale.width, this.scale.height);
   const contentTop = this.getContentAreaTop();
 
-  // Tinggi dasar HUD sedikit di bawah garis title BaseScene
+  // HUD sedikit di bawah header title
   const hudY = contentTop + Math.round(base * 0.008);
 
   const fontPx = Math.max(14, Math.round(base * 0.038));
 
-  // === Surrender di pojok kiri atas ===
+  // === Surrender di pojok kiri atas (ikon Menyerah.png) ===
   const surrenderSize = Math.max(32, Math.round(base * 0.06));
+  const surrenderX =
+    this.centerX - this.panelWidth / 2 + 16 + surrenderSize / 2;
+  const surrenderY = hudY;
 
-const iconX =
-  this.centerX - this.panelWidth / 2 + 16 + surrenderSize / 2;
-const iconY = hudY;
+  this.surrenderIcon = this.add
+    .image(surrenderX, surrenderY, 'btn_surrender') // preload di BaseScene: assets/Images/Menyerah.png
+    .setDisplaySize(surrenderSize, surrenderSize)
+    .setOrigin(0.5)
+    .setInteractive({ useHandCursor: true });
 
-const img = this.add
-  .image(iconX, iconY, 'btn_surrender')
-  .setDisplaySize(surrenderSize, surrenderSize)
-  .setOrigin(0.5)
-  .setInteractive({ useHandCursor: true });
-
-img.on('pointerup', () => {
+  this.surrenderIcon.on('pointerup', () => {
   this.playSound('sfx_click');
-  this.endGame();
+  this.showSurrenderConfirm();
 });
 
-this.surrenderBtn = this.add.container(0, 0, [img]);
-
-  // === Score dan Waktu di tengah atas (2 baris) ===
+  // === Score & Waktu di tengah atas (2 baris) ===
   const centerX = this.centerX;
   const lineGap = Math.round(fontPx * 1.1);
 
@@ -145,21 +159,20 @@ this.surrenderBtn = this.add.container(0, 0, [img]);
     this.livesText.setVisible(false);
   }
 
-  // === Teks pertanyaan (judul soal) di bawah HUD ===
-  const questionTop = hudY + surrenderH + Math.round(base * 0.02);
-const qFont = Math.max(18, Math.round(base * 0.042));
+  // === Teks pertanyaan di bawah HUD (multiline, center) ===
+  const questionTop = hudY + surrenderSize + Math.round(base * 0.02);
+  const qFont = Math.max(18, Math.round(base * 0.042));
 
-this.questionTitle = this.add
-  .text(this.centerX, questionTop, 'Pertanyaan', {
-    fontFamily: 'Nunito',
-    fontSize: `${qFont}px`,
-    color: '#000',
-    align: 'center',
-    wordWrap: { width: this.panelWidth * 0.9 }, // wrap SEKALI di sini
-  })
-  .setOrigin(0.5, 0);
+  this.questionTitle = this.add
+    .text(this.centerX, questionTop, 'Pertanyaan', {
+      fontFamily: 'Nunito',
+      fontSize: `${qFont}px`,
+      color: '#000',
+      align: 'center',
+      wordWrap: { width: this.panelWidth * 0.9 }, // wrap SEKALI di sini
+    })
+    .setOrigin(0.5, 0);
 
-  // Garis pemisah di bawah teks pertanyaan
   const underY =
     this.questionTitle.y +
     this.questionTitle.height +
@@ -182,24 +195,23 @@ this.questionTitle = this.add
   public override draw() {
   const base = Math.min(this.scale.width, this.scale.height);
   const contentTop = this.getContentAreaTop();
-  const hudY = contentTop + Math.round(base * 0.01);
+  const hudY = contentTop + Math.round(base * 0.008);
   const fontPx = Math.max(14, Math.round(base * 0.038));
   const lineGap = Math.round(fontPx * 1.1);
 
-  // Surrender kiri atas
-if (this.surrenderBtn) {
-  const surrenderSize = Math.max(32, Math.round(base * 0.06));
-  const iconX =
-    this.centerX - this.panelWidth / 2 + 16 + surrenderSize / 2;
-  const iconY = hudY;
-  this.surrenderBtn.setPosition(iconX - this.centerX, iconY - this.centerY);
-  // atau lebih simpel: simpan img sebagai field terpisah, dan langsung setPosition(img)
-}
+  // Surrender icon
+  if (this.surrenderIcon) {
+    const surrenderSize = Math.max(32, Math.round(base * 0.06));
+    const surrenderX =
+      this.centerX - this.panelWidth / 2 + 16 + surrenderSize / 2;
+    const surrenderY = hudY;
+    this.surrenderIcon
+      .setPosition(surrenderX, surrenderY)
+      .setDisplaySize(surrenderSize, surrenderSize);
+  }
 
-  // Score / Waktu tengah atas
-  this.scoreText
-    ?.setPosition(this.centerX, hudY - lineGap / 2);
-
+  // Score & Waktu
+  this.scoreText?.setPosition(this.centerX, hudY - lineGap / 2);
   const timeVal =
     this.mode === 'survive'
       ? this.perQuestionRemaining
@@ -208,7 +220,7 @@ if (this.surrenderBtn) {
     ?.setPosition(this.centerX, hudY + lineGap / 2)
     .setText(`Waktu: ${timeVal}`);
 
-  // Nyawa kanan atas
+  // Nyawa
   if (this.mode === 'survive') {
     this.livesText
       ?.setPosition(this.centerX + this.panelWidth / 2 - 16, hudY)
@@ -218,15 +230,11 @@ if (this.surrenderBtn) {
     this.livesText?.setVisible(false);
   }
 
-  // Pertanyaan tetap center, wordWrap sudah di set di buildHUD
+  // Pertanyaan (posisi saja, wrap sudah di buildHUD)
   if (this.questionTitle) {
-    const questionTop =
-      hudY +
-      Math.max(32, Math.round(base * 0.045)) +
-      Math.round(base * 0.02);
-    this.questionTitle
-      .setPosition(this.centerX, questionTop)
-      //.setWordWrapWidth(this.panelWidth * 0.9, true);
+    const surrenderSize = Math.max(32, Math.round(base * 0.06));
+    const questionTop = hudY + surrenderSize + Math.round(base * 0.02);
+    this.questionTitle.setPosition(this.centerX, questionTop);
   }
 }
 
@@ -252,13 +260,168 @@ if (this.surrenderBtn) {
     this.timerEvent = null;
   }
 
-  private prepareQuestions() {
-    const version = SettingsManager.get().version;
-    const bank = getQuestionsForVersion(version);
-    const n = Math.min(this.cfg.totalQuestions, bank.length);
-    this.questions = bank.slice(0, n);
-    this.currentQuestionIndex = 0;
+  private showSurrenderConfirm() {
+  // kalau sudah ada modal, jangan buat lagi
+  if (this.confirmModal || this.confirmOverlay) return;
+
+  // pause timer event kalau ada
+  if (this.timerEvent) {
+    this.timerEvent.paused = true;
   }
+
+  const base = Math.min(this.scale.width, this.scale.height);
+  const boxW = Math.min(420, Math.round(this.panelWidth * 0.9));
+  const paddingX = Math.round(boxW * 0.08);
+  const paddingY = Math.round(base * 0.03);
+
+  const titleFont = Math.max(18, Math.round(base * 0.045));
+  const msgFont = Math.max(14, Math.round(base * 0.034));
+  const btnH = Math.max(40, Math.round(base * 0.055));
+
+  const message = 'Yakin menyerah?';
+
+  // Hitung tinggi konten
+  const msgWrapWidth = boxW - paddingX * 2;
+  const tempMsg = this.add
+    .text(0, 0, message, {
+      fontFamily: 'Nunito',
+      fontSize: `${msgFont}px`,
+      color: '#000',
+      align: 'center',
+      wordWrap: { width: msgWrapWidth },
+    })
+    .setOrigin(0.5, 0.5);
+  const msgHeight = tempMsg.height;
+  tempMsg.destroy(); // hanya untuk mengukur
+
+  const contentH =
+    titleFont * 1.5 + // kira2 tinggi judul
+    msgHeight +
+    btnH +
+    Math.round(base * 0.04); // jarak antar elemen
+
+  const boxH = paddingY * 2 + Math.round(contentH);
+
+  // overlay
+  this.confirmOverlay = this.add
+    .rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.4)
+    .setOrigin(0, 0)
+    .setDepth(3000)
+    .setInteractive({ useHandCursor: false });
+  //this.confirmOverlay.on('pointerup', () => this.closeConfirmModal());
+
+  // container modal
+  this.confirmModal = this.add.container(0, 0).setDepth(3100);
+
+  const boxX = this.centerX - boxW / 2;
+  const boxY = this.centerY - boxH / 2;
+  const radius = Math.round(base * 0.02);
+
+  const g = this.add.graphics();
+  g.lineStyle(2, 0x000000, 1);
+  g.fillStyle(0xffffff, 1);
+  g.fillRoundedRect(boxX, boxY, boxW, boxH, radius);
+  g.strokeRoundedRect(boxX, boxY, boxW, boxH, radius);
+  this.confirmModal.add(g);
+
+  // Judul
+  const titleY = boxY + paddingY + titleFont / 2;
+  const title = this.add
+    .text(this.centerX, titleY, 'Yakin Menyerah?', {
+      fontFamily: 'Nunito',
+      fontSize: `${titleFont}px`,
+      color: '#000',
+    })
+    .setOrigin(0.5, 0.5);
+  this.confirmModal.add(title);
+
+  // Pesan
+  const msgY = titleY + titleFont + Math.round(base * 0.01);
+  const msg = this.add
+    .text(this.centerX, msgY, message, {
+      fontFamily: 'Nunito',
+      fontSize: `${msgFont}px`,
+      color: '#000',
+      align: 'center',
+      wordWrap: { width: msgWrapWidth },
+    })
+    .setOrigin(0.5, 0.5);
+  this.confirmModal.add(msg);
+
+  // Tombol Ya / Tidak (kiri–kanan)
+      const btnY =
+    msgY + msgHeight / 2 + Math.round(base * 0.04) + btnH / 2;
+
+  // Lebar tombol & jarak (lebih dekat)
+  const btnW = Math.round(boxW * 0.32);
+  const btnGap = Math.round(boxW * 0.06); // jarak antar tombol
+  
+  const makeButton = (
+    label: string,
+    xCenter: number,
+    onClick: () => void,
+  ) => {
+    const c = this.add.container(xCenter, btnY);
+
+    const bg = this.add.graphics();
+    const r = Math.round(btnH * 0.45);
+    bg.lineStyle(2, 0x000000, 1);
+    bg.fillStyle(0xffffff, 1);
+    bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, r);
+    bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, r);
+
+    const txt = this.add
+      .text(0, 0, label, {
+        fontFamily: 'Nunito',
+        fontSize: `${Math.max(14, Math.round(btnH * 0.4))}px`,
+        color: '#000',
+      })
+      .setOrigin(0.5, 0.5);
+
+    const zone = this.add
+      .zone(0, 0, btnW, btnH)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    zone.on('pointerup', () => {
+      this.playSound('sfx_click');
+      onClick();
+    });
+
+    c.add([bg, txt, zone]);
+    this.confirmModal!.add(c);
+  };
+
+  const leftX = this.centerX - (btnW / 2 + btnGap / 2);
+  const rightX = this.centerX + (btnW / 2 + btnGap / 2);
+
+  // Kiri: Tidak (batal)
+  makeButton('Tidak', leftX, () => {
+    this.closeConfirmModal();
+    if (this.timerEvent) this.timerEvent.paused = false;
+  });
+
+  // Kanan: Ya (benar2 menyerah)
+  makeButton('Ya', rightX, () => {
+    this.closeConfirmModal();
+    this.endGame();
+  });
+}
+
+private prepareQuestions() {
+  const version = SettingsManager.get().version;
+  const bank = getQuestionsForVersion(version);
+
+  // Shuffle bank soal (Fisher–Yates)
+  for (let i = bank.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [bank[i], bank[j]] = [bank[j], bank[i]];
+  }
+
+  const n = Math.min(this.cfg.totalQuestions, bank.length);
+  this.questions = bank.slice(0, n);
+  this.currentQuestionIndex = 0;
+}
 
   private startTimer() {
     this.timerEvent?.remove();
@@ -307,7 +470,7 @@ if (this.surrenderBtn) {
     return;
   }
 
-  // Set teks pertanyaan dari bank soal (multiline, center)
+  // Set teks pertanyaan
   const text = (q as any).text ?? (q as any).question ?? 'Pertanyaan';
   if (this.questionTitle) {
     this.questionTitle.setText(text);
@@ -320,44 +483,106 @@ if (this.surrenderBtn) {
 
   this.questionStartMs = this.time.now;
 
-  const heightPx = Math.max(
-    48,
-    Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
-  );
+  const base = Math.min(this.scale.width, this.scale.height);
+  const minHeight = Math.max(48, Math.round(base * 0.06));
+  const contentWidth = this.panelWidth * 0.86;
 
-  // Tombol mulai agak di bawah garis pertanyaan
+  // Tentukan jawaban benar
+  const correctIdx =
+    (q as any).answerIndex ?? (q as any).correctAnswerIndex ?? -1;
+
+  const options = q.options.map((opt, idx) => ({
+    text: opt,
+    isCorrect: idx === correctIdx,
+  }));
+
+  // Shuffle jawaban
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [options[i], options[j]] = [options[j], options[i]];
+  }
+  this.currentShuffledAnswers = options;
+
+  // Tombol mulai agak di bawah teks pertanyaan
   const startY =
     this.questionTitle.y +
     this.questionTitle.height +
-    Math.round(heightPx * 0.8);
+    Math.round(minHeight * 0.8);
 
-  const gap = Math.round(heightPx * 0.3);
+  const gap = Math.round(minHeight * 0.3);
+  const paddingVertical = Math.round(minHeight * 0.25);
+  const radius = Math.min(24, Math.floor(minHeight * 0.45));
+
   const containers: Phaser.GameObjects.Container[] = [];
 
-  q.options.forEach((opt, i) => {
-    const btn = this.createWidePill(
-      opt,
-      () => this.onChoose(i),
-      0.86,
-      heightPx,
+  options.forEach((opt, index) => {
+    const c = this.add.container(this.centerX, 0);
+
+    const txt = this.add
+      .text(0, 0, opt.text, {
+        fontFamily: 'Nunito',
+        fontSize: `${Math.max(14, Math.round(minHeight * 0.35))}px`,
+        color: '#000',
+        align: 'center',
+        wordWrap: { width: contentWidth * 0.9 },
+      })
+      .setOrigin(0.5, 0.5);
+
+    const textHeight = txt.height;
+    const btnHeight = Math.max(
+      minHeight,
+      textHeight + paddingVertical * 2,
     );
-    btn.setPosition(this.centerX, startY + i * (heightPx + gap));
-    containers.push(btn);
+
+    const g = this.add.graphics();
+    g.lineStyle(2, 0x000000, 1);
+    g.fillStyle(0xffffff, 1);
+    g.fillRoundedRect(
+      -contentWidth / 2,
+      -btnHeight / 2,
+      contentWidth,
+      btnHeight,
+      radius,
+    );
+    g.strokeRoundedRect(
+      -contentWidth / 2,
+      -btnHeight / 2,
+      contentWidth,
+      btnHeight,
+      radius,
+    );
+
+    const zone = this.add
+      .zone(0, 0, contentWidth, btnHeight)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    zone.on('pointerup', () => this.onChoose(index));
+
+    c.add([g, txt, zone]);
+    containers.push(c);
+  });
+
+  let y = startY;
+  containers.forEach(c => {
+    const zone = c.getAt(2) as Phaser.GameObjects.Zone;
+    const btnHeight = zone.height;
+    c.setPosition(this.centerX, y + btnHeight / 2);
+    y += btnHeight + gap;
   });
 
   this.optionButtons = containers;
 }
 
-  private onChoose(optionIndex: number) {
-    if (this.isLocked) return;
-    this.isLocked = true;
+private onChoose(optionIndex: number) {
+  if (this.isLocked) return;
+  this.isLocked = true;
 
-    const q = this.questions[this.currentQuestionIndex];
-    if (!q) return;
+  const q = this.questions[this.currentQuestionIndex];
+  if (!q) return;
 
-    const correctIdx =
-      (q as any).answerIndex ?? (q as any).correctAnswerIndex ?? -1;
-    const correct = optionIndex === correctIdx;
+  const selection = this.currentShuffledAnswers[optionIndex];
+  const correct = selection?.isCorrect === true;
 
     if (this.mode === 'belajar') {
       const elapsed = Math.max(
@@ -444,19 +669,32 @@ if (this.surrenderBtn) {
     this.optionButtons = [];
   }
 
-  private endGame() {
-    this.timerEvent?.remove();
-    this.timerEvent = null;
-    this.scene.start('ResultsScene', { score: this.score, mode: this.mode });
-  }
+  private async endGame() {
+  this.timerEvent?.remove();
+  this.timerEvent = null;
+
+  // kirim skor ke leaderboard
+  /*try {
+    await submitScore({
+      mode: this.mode,
+      difficulty: this.mode === 'belajar' ? this.difficulty : null,
+      score: this.score,
+    });
+  } catch (e) {
+    console.error('submitScore error', e);
+  }*/
+
+  this.scene.start('ResultsScene', { score: this.score, mode: this.mode });
+}
 
   private onShutdown() {
-    this.timerEvent?.remove();
-    this.timerEvent = null;
-    this.clearOptionButtons();
-    this.input.removeAllListeners();
-    try {
-      this.achievementPopup?.destroy(true);
-    } catch {}
-  }
+  this.timerEvent?.remove();
+  this.timerEvent = null;
+  this.clearOptionButtons();
+  this.input.removeAllListeners();
+  this.closeConfirmModal();
+  try {
+    this.achievementPopup?.destroy(true);
+  } catch {}
+}
 }

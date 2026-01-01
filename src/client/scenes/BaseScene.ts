@@ -21,33 +21,56 @@ export class BaseScene extends Phaser.Scene {
   preload() {
     this.load.image('logo', 'assets/Images/Logo.png');
     this.load.image('back_arrow', 'assets/Images/Back.png');
+    this.load.image('btn_surrender', 'assets/Images/Menyerah.png');
+    
     this.load.audio('bgm', 'assets/Sounds/Backsound.wav');
     this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');
-    this.load.image('btn_surrender', 'images/Menyerah.png');
   }
 
 
   private getGlobalBgm(): Phaser.Sound.BaseSound | undefined {
-    return this.game.registry.get('globalBgm') as
-      | Phaser.Sound.BaseSound
-      | undefined;
-  }
+  return this.game.registry.get('globalBgm') as
+    | Phaser.Sound.BaseSound
+    | undefined;
+}
 
-  private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
-    this.game.registry.set('globalBgm', bgm ?? null);
-  }
+private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
+  this.game.registry.set('globalBgm', bgm ?? null);
+}
 
   protected initAudio() {
-    const s = SettingsManager.get();
-    if (!s.musicOn) {
-      const existing = this.getGlobalBgm();
-      existing?.stop();
-      this.setGlobalBgm(undefined);
-      return;
-    }
+  const s = SettingsManager.get();
+  if (!s.musicOn) {
+    const existing = this.getGlobalBgm();
+    existing?.stop();
+    this.setGlobalBgm(undefined);
+    return;
+  }
 
-    let bgm = this.getGlobalBgm();
+  let bgm = this.getGlobalBgm();
 
+  if (!bgm || !bgm.scene) {
+    bgm = this.sound.add('bgm', {
+      loop: true,
+      volume: s.musicVol ?? 0.8,
+    });
+    bgm.play();
+    this.setGlobalBgm(bgm);
+  } else if (!bgm.isPlaying) {
+    bgm.play({ loop: true, volume: s.musicVol ?? 0.8 });
+  } else {
+    bgm.setVolume(s.musicVol ?? 0.8);
+  }
+}
+
+  protected updateAudioSettings() {
+  const s = SettingsManager.get();
+  let bgm = this.getGlobalBgm();
+
+  if (!s.musicOn) {
+    bgm?.stop();
+    this.setGlobalBgm(undefined);
+  } else {
     if (!bgm || !bgm.scene) {
       bgm = this.sound.add('bgm', {
         loop: true,
@@ -55,33 +78,11 @@ export class BaseScene extends Phaser.Scene {
       });
       bgm.play();
       this.setGlobalBgm(bgm);
-    } else if (!bgm.isPlaying) {
-      bgm.play({ loop: true, volume: s.musicVol ?? 0.8 });
     } else {
       bgm.setVolume(s.musicVol ?? 0.8);
     }
   }
-
-  protected updateAudioSettings() {
-    const s = SettingsManager.get();
-    let bgm = this.getGlobalBgm();
-
-    if (!s.musicOn) {
-      bgm?.stop();
-      this.setGlobalBgm(undefined);
-    } else {
-      if (!bgm || !bgm.scene) {
-        bgm = this.sound.add('bgm', {
-          loop: true,
-          volume: s.musicVol ?? 0.8,
-        });
-        bgm.play();
-        this.setGlobalBgm(bgm);
-      } else {
-        bgm.setVolume(s.musicVol ?? 0.8);
-      }
-    }
-  }
+}
 
   protected playSound(key: string) {
     const s = SettingsManager.get();
@@ -104,7 +105,6 @@ export class BaseScene extends Phaser.Scene {
     // Default header: title text + underline
     this.createTitleArea();
     this.createBackIcon();
-    this.initAudio();
     this.draw();
 
     this.scale.on('resize', () => {
