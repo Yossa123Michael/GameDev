@@ -40,12 +40,6 @@ private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
 
 protected initAudio() {
   const s = SettingsManager.get();
-  if (!s.musicOn) {
-    const existing = this.getGlobalBgm();
-    existing?.setMute(true);
-    return;
-  }
-
   let bgm = this.getGlobalBgm();
 
   if (!bgm || !bgm.scene) {
@@ -55,41 +49,28 @@ protected initAudio() {
     });
     bgm.play();
     this.setGlobalBgm(bgm);
-  } else {
-    if (!bgm.isPlaying) {
-      bgm.play({ loop: true, volume: s.musicVol ?? 0.8 });
-    } else {
-      bgm.setVolume(s.musicVol ?? 0.8);
-    }
-    bgm.setMute(false);
   }
+
+  bgm.setVolume(s.musicVol ?? 0.8);
+  bgm.setMute(!s.musicOn);
 }
 
-  protected playSound(key: string) {
-    const s = SettingsManager.get();
-    if (!s.sfxOn) return;
-    this.sound.play(key, { volume: s.sfxVol ?? 1 });
-  }
-
-  protected updateAudioSettings() {
+protected updateAudioSettings() {
   const s = SettingsManager.get();
   let bgm = this.getGlobalBgm();
 
-  if (!s.musicOn) {
-    bgm?.setMute(true);
-  } else {
-    if (!bgm || !bgm.scene) {
-      bgm = this.sound.add('bgm', {
-        loop: true,
-        volume: s.musicVol ?? 0.8,
-      });
-      bgm.play();
-      this.setGlobalBgm(bgm);
-    } else {
-      bgm.setMute(false);
-      bgm.setVolume(s.musicVol ?? 0.8);
-    }
+  if (!bgm || !bgm.scene) {
+    if (!s.musicOn) return; // tidak perlu bikin instance kalau OFF
+    bgm = this.sound.add('bgm', {
+      loop: true,
+      volume: s.musicVol ?? 0.8,
+    });
+    bgm.play();
+    this.setGlobalBgm(bgm);
   }
+
+  bgm.setVolume(s.musicVol ?? 0.8);
+  bgm.setMute(!s.musicOn);
 }
 
   // ====== LIFECYCLE ===================================================
@@ -208,6 +189,12 @@ protected initAudio() {
       this.scene.start('MainMenuScene');
     });
   }
+
+  protected playSound(key: string) {
+  const s = SettingsManager.get();
+  if (!s.sfxOn) return;
+  this.sound.play(key, { volume: s.sfxVol ?? 1 });
+}
 
   protected setTitle(text: string) {
     this.titleText?.setText(text);
