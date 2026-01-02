@@ -28,7 +28,7 @@ export class BaseScene extends Phaser.Scene {
   }
 
 
-  private getGlobalBgm(): Phaser.Sound.BaseSound | undefined {
+private getGlobalBgm(): Phaser.Sound.BaseSound | undefined {
   return this.game.registry.get('globalBgm') as
     | Phaser.Sound.BaseSound
     | undefined;
@@ -38,12 +38,11 @@ private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
   this.game.registry.set('globalBgm', bgm ?? null);
 }
 
-  protected initAudio() {
+protected initAudio() {
   const s = SettingsManager.get();
   if (!s.musicOn) {
     const existing = this.getGlobalBgm();
-    existing?.stop();
-    this.setGlobalBgm(undefined);
+    existing?.setMute(true);
     return;
   }
 
@@ -56,20 +55,28 @@ private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
     });
     bgm.play();
     this.setGlobalBgm(bgm);
-  } else if (!bgm.isPlaying) {
-    bgm.play({ loop: true, volume: s.musicVol ?? 0.8 });
   } else {
-    bgm.setVolume(s.musicVol ?? 0.8);
+    if (!bgm.isPlaying) {
+      bgm.play({ loop: true, volume: s.musicVol ?? 0.8 });
+    } else {
+      bgm.setVolume(s.musicVol ?? 0.8);
+    }
+    bgm.setMute(false);
   }
 }
+
+  protected playSound(key: string) {
+    const s = SettingsManager.get();
+    if (!s.sfxOn) return;
+    this.sound.play(key, { volume: s.sfxVol ?? 1 });
+  }
 
   protected updateAudioSettings() {
   const s = SettingsManager.get();
   let bgm = this.getGlobalBgm();
 
   if (!s.musicOn) {
-    bgm?.stop();
-    this.setGlobalBgm(undefined);
+    bgm?.setMute(true);
   } else {
     if (!bgm || !bgm.scene) {
       bgm = this.sound.add('bgm', {
@@ -79,16 +86,11 @@ private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
       bgm.play();
       this.setGlobalBgm(bgm);
     } else {
+      bgm.setMute(false);
       bgm.setVolume(s.musicVol ?? 0.8);
     }
   }
 }
-
-  protected playSound(key: string) {
-    const s = SettingsManager.get();
-    if (!s.sfxOn) return;
-    this.sound.play(key, { volume: s.sfxVol ?? 1 });
-  }
 
   // ====== LIFECYCLE ===================================================
 
@@ -105,6 +107,7 @@ private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
     // Default header: title text + underline
     this.createTitleArea();
     this.createBackIcon();
+    this.initAudio();
     this.draw();
 
     this.scale.on('resize', () => {

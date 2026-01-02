@@ -11,61 +11,53 @@ export class MainMenuScene extends BaseScene {
   public override create() {
     super.create();
 
-    // Ganti header default dengan logo besar di tengah
-    this.titleText?.destroy();
-    this.titleUnderline?.destroy();
+    this.ensureBackIcon(false);
 
+    // Pakai area header dengan logo besar
     this.createCenteredLogoTitleArea();
-    this.ensureBackIcon(false); // main menu tidak punya back
+    // Title pakai i18n kalau tersedia, kalau tidak pakai string langsung
+    const titleText = (t && t('appTitle')) || 'Road Knowledge';
+    this.setTitle(titleText);
 
-    try { this.buttons.forEach(b => b.destroy()); } catch {}
+    // Bersihkan button lama jika ada
+    try {
+      this.buttons.forEach(b => b.destroy());
+    } catch {}
     this.buttons = [];
 
-    const heightPx = Math.max(
-      48,
-      Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
-    );
+    const base = Math.min(this.scale.width, this.scale.height);
+    const heightPx = Math.max(48, Math.round(base * 0.06));
 
     const items = [
-  {
-    key: 'mainPlay' as const,
-    fallback: 'Start',
-    onTap: () => this.scene.start('PilihModeScene'),
-  },
-  {
-    key: 'mainLeaderboard' as const,
-    fallback: 'Leaderboard',
-    onTap: () => this.scene.start('LeaderboardModeScene'),
-  },
-  {
-    key: 'mainAchievement' as const,
-    fallback: 'Achievement',
-    onTap: () => this.scene.start('AchievementScene'),
-  },
-  {
-    key: 'mainOptions' as const,
-    fallback: 'Options',
-    onTap: () => this.scene.start('OptionScene'),
-  },
-  {
-    // Kalau nanti mau Quit beneran, bisa diubah
-    key: 'mainQuit' as const,
-    fallback: 'Credits',
-    onTap: () => this.scene.start('CreditScene'),
-  },
-];
+      {
+        label: (t && t('menuStart')) || 'Mulai',
+        onTap: () => this.scene.start('PilihModeScene'),
+      },
+      {
+        label: (t && t('menuLeaderboard')) || 'Leaderboard',
+        onTap: () => this.scene.start('LeaderboardModeScene'),
+      },
+      {
+        label: (t && t('menuOptions')) || 'Pengaturan',
+        onTap: () => this.scene.start('OptionScene'),
+      },
+      {
+        label: (t && t('menuCredits')) || 'Credit',
+        onTap: () => this.scene.start('CreditScene'),
+      },
+    ];
 
-    this.buttons = items.map(item =>
-  this.createWidePill(
-    t(item.key) ?? item.fallback,
-    () => {
-      this.playSound('sfx_click');
-      item.onTap();
-    },
-    0.86,
-    heightPx,
-  ),
-);
+    this.buttons = items.map(it =>
+      this.createWidePill(
+        it.label,
+        () => {
+          this.playSound('sfx_click');
+          it.onTap();
+        },
+        0.86,
+        heightPx,
+      ),
+    );
 
     this.layoutPillsCentered(
       this.buttons,
@@ -75,19 +67,16 @@ export class MainMenuScene extends BaseScene {
   }
 
   public override draw() {
-    if (!this.buttons || this.buttons.length === 0) {
-      this.ensureBackIcon(false);
-      this.setTitle(t('mainTitle') ?? 'Road Knowledge');
-      return;
-    }
+    if (!this.buttons || this.buttons.length === 0) return;
 
     this.ensureBackIcon(false);
-    this.setTitle(t('mainTitle') ?? 'Road Knowledge');
 
-    const heightPx = Math.max(
-      48,
-      Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
-    );
+    const titleText = (t && t('appTitle')) || 'Road Knowledge';
+    this.setTitle(titleText);
+
+    const base = Math.min(this.scale.width, this.scale.height);
+    const heightPx = Math.max(48, Math.round(base * 0.06));
+
     this.layoutPillsCentered(
       this.buttons,
       heightPx,
