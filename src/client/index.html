@@ -9,20 +9,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <link rel="stylesheet" href="style.css" />
     <title>Road Knowledge</title>
-    <style>
-      html, body { height: 100%; margin: 0; background: #fff; }
-      /* Game container memenuhi parent; tidak memaksa tinggi viewport window */
-      #game {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        overflow: hidden;
-      }
-      canvas { display: block; margin: 0 auto; }
-    </style>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #ffffff; /* atau #111, tidak masalah */
+  }
+  #game {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    background: #ffffff; /* warna belakang kalau perlu */
+  }
+  canvas {
+    display: block;
+    margin: 0;
+  }
+</style>
   </head>
   <body>
-    <div id="game"></div>
-    <script type="module" src="/main.ts"></script>
-  </body>
+  <div id="game"></div>
+  <script type="module" src="/main.ts"></script>
+</body>
 </html>

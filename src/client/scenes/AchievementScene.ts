@@ -22,8 +22,8 @@ export class AchievementScene extends BaseScene {
       Math.round(Math.min(this.scale.width, this.scale.height) * 0.06),
     );
 
-    const makeSectionLabel = (key: keyof typeof import('../lib/i18n').dicts['id']) => {
-      const text = t(key);
+    const makeSectionLabel = (key: string) => {
+      const text = t(key as any);
       const lbl = this.add
         .text(this.centerX, 0, text, {
           fontFamily: 'Nunito',
@@ -60,8 +60,8 @@ export class AchievementScene extends BaseScene {
   public override draw() {
     if (!this.rows || this.rows.length === 0) return;
 
-    this.ensureBackIcon(true);
-    this.setTitle(t('achievementTitle') ?? 'Achievement');
+    this.layoutTitleArea();
+    this.setTitle(t('Achievment') ?? 'Pencapaian');
 
     const heightPx = Math.max(
       48,

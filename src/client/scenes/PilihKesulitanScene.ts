@@ -86,7 +86,9 @@ export class PilihKesulitanScene extends BaseScene {
 
   public override draw() {
     this.ensureBackIcon(true);
-    this.setTitle(t('chooseDifficultyTitle') ?? 'Pilih tingkat Kesulitan');
+
+    this.layoutTitleArea();
+    this.setTitle(t('Choose Difficulty') ?? 'Pilih tingkat Kesulitan');
 
     if (!this.buttons || this.buttons.length === 0) return;
 

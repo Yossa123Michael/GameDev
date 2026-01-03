@@ -1,4 +1,6 @@
 import { BaseScene } from './BaseScene';
+import { t } from '../lib/i18n';
+
 type LBType = 'belajar' | 'survive';
 
 export class LeaderboardCategoryScene extends BaseScene {
@@ -29,7 +31,8 @@ export class LeaderboardCategoryScene extends BaseScene {
 
   public override draw() {
     this.ensureBackIcon(true);
-    this.setTitle('LeaderBoard');
+    this.layoutTitleArea();
+    this.setTitle(t('Leaderboard') ?? 'Papan Peringkat');
     const heightPx = Math.max(48, Math.round(Math.min(this.scale.width, this.scale.height) * 0.06));
     this.layoutPillsCentered(this.buttons, heightPx, Math.round(heightPx * 0.18));
   }

@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { SettingsManager } from './lib/Settings';
 import { ensureAnonAuth } from './lib/supabaseClient';
 
 import { MainMenuScene } from './scenes/MainMenuScene';
@@ -57,8 +56,9 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 640,
   parent: 'game',
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.RESIZE,      // ganti FIT -> RESIZE
+    autoCenter: Phaser.Scale.NO_CENTER,
+  },
   scene: [
     BootScene,
     MainMenuScene,

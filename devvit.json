@@ -16,12 +16,6 @@
     "dir": "dist/server",
     "entry": "index.cjs"
   },
-  "webviewAssets": [
-    {
-      "name": "game",
-      "path": "dist/client"
-    }
-  ],
   "menu": {
     "items": [
       {

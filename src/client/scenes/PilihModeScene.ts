@@ -67,7 +67,9 @@ export class PilihModeScene extends BaseScene {
     if (!this.buttons || this.buttons.length === 0) return;
 
     this.ensureBackIcon(true);
-    this.setTitle(t('chooseModeTitle') ?? 'Choose Mode');
+
+    this.layoutTitleArea();
+    this.setTitle(t('Choose Mode') ?? 'Pilih Mode');
 
     const heightPx = Math.max(
       52,

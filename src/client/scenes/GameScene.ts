@@ -49,19 +49,15 @@ export class Game extends BaseScene {
   private isLocked = false;
   private achievementPopup?: Phaser.GameObjects.Container;
 
-  private confirmOverlay?: Phaser.GameObjects.Rectangle;
-  private confirmModal?: Phaser.GameObjects.Container;
+  private confirmOverlay: Phaser.GameObjects.Rectangle | null = null;
+  private confirmModal: Phaser.GameObjects.Container | null = null;
 
   private closeConfirmModal() {
-  try {
-    this.confirmOverlay?.destroy();
-  } catch {}
-  this.confirmOverlay = undefined;
+  try { this.confirmOverlay?.destroy(); } catch {}
+  this.confirmOverlay = null;
 
-  try {
-    this.confirmModal?.destroy(true);
-  } catch {}
-  this.confirmModal = undefined;
+  try { this.confirmModal?.destroy(true); } catch {}
+  this.confirmModal = null;
 }
 
   constructor() {
@@ -460,7 +456,7 @@ private prepareQuestions() {
     this.showQuestion();
   }
 
-  private showQuestion() {
+private showQuestion() {
   this.clearOptionButtons();
   this.isLocked = false;
 
@@ -470,15 +466,9 @@ private prepareQuestions() {
     return;
   }
 
-  // Set teks pertanyaan
   const text = (q as any).text ?? (q as any).question ?? 'Pertanyaan';
   if (this.questionTitle) {
     this.questionTitle.setText(text);
-  }
-
-  if (this.mode === 'survive') {
-    this.perQuestionRemaining = this.cfg.perQuestionTime;
-    this.timerText?.setText(`Waktu: ${this.perQuestionRemaining}`);
   }
 
   this.questionStartMs = this.time.now;

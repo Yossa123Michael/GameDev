@@ -1,4 +1,5 @@
 import { BaseScene } from './BaseScene';
+import { t } from '../lib/i18n';
 
 export class MainMenuScene extends BaseScene {
   private buttons: Phaser.GameObjects.Container[] = [];
@@ -27,23 +28,23 @@ export class MainMenuScene extends BaseScene {
 
 const items = [
   {
-    label: (t && t('menuStart')) || 'Mulai',
+    label: (t && t('Start')) || 'Mulai',
     onTap: () => this.scene.start('PilihModeScene'),
   },
   {
-    label: (t && t('menuLeaderboard')) || 'Leaderboard',
+    label: (t && t('Leaderboard')) || 'Leaderboard',
     onTap: () => this.scene.start('LeaderboardModeScene'),
   },
   {
-    label: (t && t('menuAchievement')) || 'Achievement',
+    label: (t && t('Achievement')) || 'Achievement',
     onTap: () => this.scene.start('AchievementScene'),
   },
   {
-    label: (t && t('menuOptions')) || 'Pengaturan',
+    label: (t && t('Options')) || 'Pengaturan',
     onTap: () => this.scene.start('OptionScene'),
   },
   {
-    label: (t && t('menuCredits')) || 'Credit',
+    label: (t && t('Credits')) || 'Credit',
     onTap: () => this.scene.start('CreditScene'),
   },
 ];
@@ -67,21 +68,24 @@ const items = [
     );
   }
 
-  public override draw() {
-    if (!this.buttons || this.buttons.length === 0) {
-      this.ensureBackIcon(false);
-      return;
-    }
-
+public override draw() {
+  if (!this.buttons || this.buttons.length === 0) {
     this.ensureBackIcon(false);
-
-    const base = Math.min(this.scale.width, this.scale.height);
-    const heightPx = Math.max(48, Math.round(base * 0.06));
-
-    this.layoutPillsCentered(
-      this.buttons,
-      heightPx,
-      Math.round(heightPx * 0.24),
-    );
+    return;
   }
+
+  this.ensureBackIcon(false);
+
+  // Relayout logo + title saat resize
+  this.layoutCenteredLogoTitleArea();
+
+  const base = Math.min(this.scale.width, this.scale.height);
+  const heightPx = Math.max(48, Math.round(base * 0.06));
+
+  this.layoutPillsCentered(
+    this.buttons,
+    heightPx,
+    Math.round(heightPx * 0.24),
+  );
+}
 }

@@ -64,7 +64,9 @@ export class LeaderboardModeScene extends BaseScene {
     if (!this.buttons || this.buttons.length === 0) return;
 
     this.ensureBackIcon(true);
-    this.setTitle(t('leaderboardTitle') ?? 'Leaderboard');
+
+    this.layoutTitleArea();
+    this.setTitle(t('Leaderboard') ?? 'Papan Peringkat');
 
     const heightPx = Math.max(
       48,

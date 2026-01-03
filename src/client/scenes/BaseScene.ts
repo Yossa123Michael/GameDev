@@ -12,7 +12,6 @@ export class BaseScene extends Phaser.Scene {
   protected titleText?: Phaser.GameObjects.Text;
   protected titleUnderline?: Phaser.GameObjects.Line;
   protected backIcon?: Phaser.GameObjects.Image;
-  private bgm?: Phaser.Sound.BaseSound;
 
   constructor(sceneKey: string) {
     super(sceneKey);
@@ -29,48 +28,42 @@ export class BaseScene extends Phaser.Scene {
 
 
 private getGlobalBgm(): Phaser.Sound.BaseSound | undefined {
-  return this.game.registry.get('globalBgm') as
-    | Phaser.Sound.BaseSound
-    | undefined;
-}
-
-private setGlobalBgm(bgm: Phaser.Sound.BaseSound | undefined) {
-  this.game.registry.set('globalBgm', bgm ?? null);
+  return this.game.registry.get('globalBgm') as Phaser.Sound.BaseSound | undefined;
 }
 
 protected initAudio() {
   const s = SettingsManager.get();
-  let bgm = this.getGlobalBgm();
+  let bgm = this.getGlobalBgm() as any;
 
   if (!bgm || !bgm.scene) {
     bgm = this.sound.add('bgm', {
       loop: true,
       volume: s.musicVol ?? 0.8,
-    });
+    }) as any;
     bgm.play();
-    this.setGlobalBgm(bgm);
+    this.game.registry.set('globalBgm', bgm);
   }
 
-  bgm.setVolume(s.musicVol ?? 0.8);
-  bgm.setMute(!s.musicOn);
+  bgm.setVolume?.(s.musicVol ?? 0.8);
+  bgm.setMute?.(!s.musicOn);
 }
 
 protected updateAudioSettings() {
   const s = SettingsManager.get();
-  let bgm = this.getGlobalBgm();
+  let bgm = this.getGlobalBgm() as any;
 
   if (!bgm || !bgm.scene) {
-    if (!s.musicOn) return; // tidak perlu bikin instance kalau OFF
+    if (!s.musicOn) return;
     bgm = this.sound.add('bgm', {
       loop: true,
       volume: s.musicVol ?? 0.8,
-    });
+    }) as any;
     bgm.play();
-    this.setGlobalBgm(bgm);
+    this.game.registry.set('globalBgm', bgm);
   }
 
-  bgm.setVolume(s.musicVol ?? 0.8);
-  bgm.setMute(!s.musicOn);
+  bgm.setVolume?.(s.musicVol ?? 0.8);
+  bgm.setMute?.(!s.musicOn);
 }
 
   // ====== LIFECYCLE ===================================================
@@ -171,6 +164,54 @@ protected updateAudioSettings() {
       )
       .setLineWidth(1, 1);
   }
+
+  /** Dipanggil dari draw() scene untuk menyesuaikan posisi logo + title saat resize */
+protected layoutCenteredLogoTitleArea() {
+  if (!this.titleText || !this.titleText.scene) return;
+  if (!this.titleUnderline || !this.titleUnderline.scene) return;
+
+  const base = Math.min(this.scale.width, this.scale.height);
+  const targetHeight = Math.round(base * 0.18);
+  const logoY = this.scale.height * 0.16;
+
+  // Cari image logo (yang dipakai createCenteredLogoTitleArea)
+  const children = this.children.getChildren();
+  const titleIndex = children.indexOf(this.titleText);
+  let logo: Phaser.GameObjects.Image | null = null;
+
+  for (let i = titleIndex - 1; i >= 0; i--) {
+    const obj = children[i];
+    if (obj instanceof Phaser.GameObjects.Image && obj.texture.key === 'logo') {
+      logo = obj;
+      break;
+    }
+  }
+
+  if (logo) {
+    const originalHeight = logo.height || 1;
+    const scale = targetHeight / originalHeight;
+    logo
+      .setScale(scale)
+      .setPosition(this.centerX, logoY);
+  }
+
+  const titleSize = Math.max(22, Math.round(base * 0.065));
+  const titleY = logoY + targetHeight * 0.75;
+
+  this.titleText
+    .setFontSize(titleSize)
+    .setPosition(this.centerX, titleY);
+
+  const underlineY = titleY + Math.round(base * 0.05);
+  this.titleUnderline
+    .setTo(
+      this.centerX - this.panelWidth / 2,
+      underlineY,
+      this.centerX + this.panelWidth / 2,
+      underlineY,
+    )
+    .setLineWidth(1, 1);
+}
 
   protected createBackIcon() {
     const size = Math.round(Math.min(this.scale.width, this.scale.height) * 0.08);
@@ -297,6 +338,30 @@ protected updateAudioSettings() {
       yCenter += buttonHeight + gap;
     }
   }
+
+
+  protected layoutTitleArea() {
+  if (!this.titleText || !this.titleText.scene) return;
+  if (!this.titleUnderline || !this.titleUnderline.scene) return;
+
+  const base = Math.min(this.scale.width, this.scale.height);
+  const titleSize = Math.max(20, Math.round(base * 0.06));
+  const titleY = this.scale.height * 0.10;
+
+  this.titleText
+    .setFontSize(titleSize)
+    .setPosition(this.centerX, titleY);
+
+  const underlineY = titleY + Math.round(base * 0.06);
+  this.titleUnderline
+    .setTo(
+      this.centerX - this.panelWidth / 2,
+      underlineY,
+      this.centerX + this.panelWidth / 2,
+      underlineY,
+    )
+    .setLineWidth(1, 1);
+}
 
   protected ensureGraphicsInContainer(
     c: Phaser.GameObjects.Container,

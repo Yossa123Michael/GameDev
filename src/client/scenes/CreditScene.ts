@@ -1,4 +1,5 @@
 import { BaseScene } from './BaseScene';
+import { t } from '../lib/i18n';
 
 export class CreditScene extends BaseScene {
   private lines: Phaser.GameObjects.Text[] = [];
@@ -33,7 +34,12 @@ export class CreditScene extends BaseScene {
   }
 
   public override draw() {
-    this.ensureBackIcon(true);
-    this.setTitle('Credit');
+
+  this.ensureBackIcon(true);
+  this.layoutTitleArea();
+  this.setTitle(t('Credits') ?? 'Kredit');
+
+  const base = Math.min(this.scale.width, this.scale.height);
+  const heightPx = Math.max(48, Math.round(base * 0.06));
   }
 }
