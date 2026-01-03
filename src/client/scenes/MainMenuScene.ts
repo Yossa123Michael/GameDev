@@ -29,23 +29,23 @@ export class MainMenuScene extends BaseScene {
 const items = [
   {
     label: (t && t('Start')) || 'Mulai',
-    onTap: () => this.scene.start('PilihModeScene'),
+    onTap: () => this.goToScene('PilihModeScene'),
   },
   {
     label: (t && t('Leaderboard')) || 'Leaderboard',
-    onTap: () => this.scene.start('LeaderboardModeScene'),
+    onTap: () => this.goToScene('LeaderboardModeScene'),
   },
   {
     label: (t && t('Achievement')) || 'Achievement',
-    onTap: () => this.scene.start('AchievementScene'),
+    onTap: () => this.goToScene('AchievementScene'),
   },
   {
     label: (t && t('Options')) || 'Pengaturan',
-    onTap: () => this.scene.start('OptionScene'),
+    onTap: () => this.goToScene('OptionScene'),
   },
   {
     label: (t && t('Credits')) || 'Credit',
-    onTap: () => this.scene.start('CreditScene'),
+    onTap: () => this.goToScene('CreditScene'),
   },
 ];
 

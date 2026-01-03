@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { t } from '../lib/i18n';
 import { SettingsManager } from '../lib/Settings';
 
+const REG_PREV_SCENE = 'rk:prevScene';
+
 export class BaseScene extends Phaser.Scene {
   protected centerX = 0;
   protected centerY = 0;
@@ -66,6 +68,21 @@ protected updateAudioSettings() {
   bgm.setMute?.(!s.musicOn);
 }
 
+private setPreviousSceneKey(key: string | null) {
+  this.game.registry.set(REG_PREV_SCENE, key);
+}
+
+private getPreviousSceneKey(): string | null {
+  const v = this.game.registry.get(REG_PREV_SCENE);
+  return typeof v === 'string' ? v : null;
+}
+
+// Gunakan ini untuk pindah scene agar back tahu "dari mana"
+protected goToScene(nextKey: string, data?: any) {
+  this.setPreviousSceneKey(this.scene.key);
+  this.scene.start(nextKey, data);
+}
+
   // ====== LIFECYCLE ===================================================
 
   create() {
@@ -127,6 +144,29 @@ protected updateAudioSettings() {
       )
       .setLineWidth(1, 1);
   }
+
+  protected layoutTitleArea() {
+  if (!this.titleText || !this.titleText.scene) return;
+  if (!this.titleUnderline || !this.titleUnderline.scene) return;
+
+  const base = Math.min(this.scale.width, this.scale.height);
+  const titleSize = Math.max(20, Math.round(base * 0.06));
+  const titleY = this.scale.height * 0.10;
+
+  this.titleText
+    .setFontSize(titleSize)
+    .setPosition(this.centerX, titleY);
+
+  const underlineY = titleY + Math.round(base * 0.06);
+  this.titleUnderline
+    .setTo(
+      this.centerX - this.panelWidth / 2,
+      underlineY,
+      this.centerX + this.panelWidth / 2,
+      underlineY,
+    )
+    .setLineWidth(1, 1);
+}
 
   /** Header khusus main menu: logo besar + title di bawahnya */
   protected createCenteredLogoTitleArea() {
@@ -214,22 +254,28 @@ protected layoutCenteredLogoTitleArea() {
 }
 
   protected createBackIcon() {
-    const size = Math.round(Math.min(this.scale.width, this.scale.height) * 0.08);
-    const iconX = this.scale.width * 0.08;
-    const iconY = this.scale.height * 0.06;
+  const size = Math.round(Math.min(this.scale.width, this.scale.height) * 0.08);
+  const iconX = this.scale.width * 0.08;
+  const iconY = this.scale.height * 0.06;
 
-    this.backIcon = this.add
-      .image(iconX, iconY, 'back_arrow')
-      .setDisplaySize(size, size)
-      .setOrigin(0, 0.5)
-      .setVisible(false)
-      .setInteractive({ useHandCursor: true });
+  this.backIcon = this.add
+    .image(iconX, iconY, 'back_arrow')
+    .setDisplaySize(size, size)
+    .setOrigin(0, 0.5)
+    .setVisible(false)
+    .setInteractive({ useHandCursor: true });
 
-    this.backIcon.on('pointerup', () => {
-      this.playSound('sfx_click');
+  this.backIcon.on('pointerup', () => {
+    this.playSound('sfx_click');
+
+    const prev = this.getPreviousSceneKey();
+    if (prev && this.scene.get(prev)) {
+      this.scene.start(prev);
+    } else {
       this.scene.start('MainMenuScene');
-    });
-  }
+    }
+  });
+}
 
   protected playSound(key: string) {
   const s = SettingsManager.get();
@@ -238,6 +284,7 @@ protected layoutCenteredLogoTitleArea() {
 }
 
   protected setTitle(text: string) {
+    if (!this.titleText || !this.titleText.scene) return;
     this.titleText?.setText(text);
   }
 

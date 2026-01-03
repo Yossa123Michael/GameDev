@@ -250,12 +250,26 @@ private buildSimpleModal(
     ]);
   }
 
+  protected updateGlobalBgmFromSettings() {
+  const s = SettingsManager.get();
+  const list = this.sound.getAll('bgm') as Phaser.Sound.BaseSound[];
+  const bgm = list[0];
+  if (!bgm) return;
+  bgm.setMute(!s.musicOn);
+  bgm.setVolume(s.musicVol ?? 0.8);
+}
+
 public override draw() {
   if (!this.rows || this.rows.length === 0) return;
 
   this.ensureBackIcon(true);
+
+  // Pastikan header ada dan posisinya benar
+  if (!this.titleText || !this.titleText.scene || !this.titleUnderline || !this.titleUnderline.scene) {
+    this.createTitleArea();  // buat lagi kalau hilang
+  }
   this.layoutTitleArea();
-  this.setTitle(t('Options') ?? 'Pengaturan');
+  this.setTitle(t('optionsTitle') ?? 'Options');
 
   const heightPx = Math.max(
     48,
@@ -267,13 +281,7 @@ public override draw() {
     Math.round(heightPx * 0.22),
   );
 
-  // kalau modal lagi terbuka, rebuild biar tetap di tengah
-  if (this.modal) {
-    // Kita tidak tahu modal apa (bahasa/versi), jadi simpan info terakhir waktu dibuka
-    // Untuk praktis: cukup set ukuran overlay saja, biarkan posisi box relatif terhadap center
-    this.overlay?.setSize(this.scale.width, this.scale.height);
-  } else {
-    this.overlay?.setSize(this.scale.width, this.scale.height);
-  }
+  // sesuaikan overlay jika window resize
+  this.overlay?.setSize(this.scale.width, this.scale.height);
 }
 }

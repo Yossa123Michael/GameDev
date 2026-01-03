@@ -51,25 +51,23 @@ export class LeaderboardScene extends BaseScene {
       .setOrigin(0.5);
   }
 
-  public override draw() {
-    this.ensureBackIcon(true);
-    
-    this.layoutTitleArea();
-    this.setTitle(t('Leaderboard') ?? 'Papan Peringkat');
+public override draw() {
+  // header
+  this.ensureBackIcon(true);
+  this.layoutTitleArea();
+  this.setTitle(t('leaderboardTitle') ?? 'Papan Skor');
 
-    if (!this.emptyText) return;
+  // kalau belum ada baris, tidak perlu apa-apa
+  if (!this.rows || this.rows.length === 0) return;
 
-    const fontSize = Math.max(
-      16,
-      Math.round(Math.min(this.scale.width, this.scale.height) * 0.03),
-    );
+  const base = Math.min(this.scale.width, this.scale.height);
+  const rowH = Math.max(40, Math.round(base * 0.05));
+  const gap = Math.round(rowH * 0.22);
 
-    this.emptyText
-      .setPosition(
-        this.centerX,
-        this.getContentAreaTop() +
-          Math.round(this.getContentAreaHeight() / 2),
-      )
-      .setStyle({ fontSize: `${fontSize}px` });
-  }
+  this.layoutPillsCentered(
+    this.rows,
+    rowH,
+    gap,
+  );
+}
 }
