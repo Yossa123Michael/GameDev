@@ -28,13 +28,13 @@ export class LeaderboardModeScene extends BaseScene {
       {
         label: t('leaderboardModeClassic') ?? 'Mode Klasik',
         onTap: () =>
-          this.scene.start('LeaderboardCategoryScene', { mode: 'classic' }),
+          this.goToScene('LeaderboardCategoryScene', { mode: 'classic' }),
       },
       {
         label: t('leaderboardModeSurvive') ?? 'Mode Survive',
         // LANGSUNG ke leaderboard, tanpa pilih tingkat kesulitan
         onTap: () =>
-          this.scene.start('LeaderboardScene', {
+          this.goToScene('LeaderboardScene', {
             mode: 'survive',
             difficulty: null,
           }),

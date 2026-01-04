@@ -3,6 +3,7 @@ import { t } from '../lib/i18n';
 import { SettingsManager } from '../lib/Settings';
 
 const REG_PREV_SCENE = 'rk:prevScene';
+const REG_GLOBAL_BGM = 'rk:globalBgm';
 
 export class BaseScene extends Phaser.Scene {
   protected centerX = 0;
@@ -29,43 +30,51 @@ export class BaseScene extends Phaser.Scene {
   }
 
 
-private getGlobalBgm(): Phaser.Sound.BaseSound | undefined {
-  return this.game.registry.get('globalBgm') as Phaser.Sound.BaseSound | undefined;
+private getGlobalBgm(): Phaser.Sound.BaseSound | null {
+  const s = this.game.registry.get(REG_GLOBAL_BGM);
+  return (s as Phaser.Sound.BaseSound) ?? null;
+}
+
+private setGlobalBgm(bgm: Phaser.Sound.BaseSound | null) {
+  this.game.registry.set(REG_GLOBAL_BGM, bgm ?? null);
 }
 
 protected initAudio() {
   const s = SettingsManager.get();
-  let bgm = this.getGlobalBgm() as any;
+  let bgm = this.getGlobalBgm();
 
+  // Buat 1 instance global kalau belum ada
   if (!bgm || !bgm.scene) {
     bgm = this.sound.add('bgm', {
       loop: true,
       volume: s.musicVol ?? 0.8,
     }) as any;
-    bgm.play();
-    this.game.registry.set('globalBgm', bgm);
+    (bgm as any).play();
+    this.setGlobalBgm(bgm);
   }
 
-  bgm.setVolume?.(s.musicVol ?? 0.8);
-  bgm.setMute?.(!s.musicOn);
+  // Terapkan setting
+  (bgm as any).setVolume?.(s.musicVol ?? 0.8);
+  (bgm as any).setMute?.(!s.musicOn);
 }
 
 protected updateAudioSettings() {
   const s = SettingsManager.get();
-  let bgm = this.getGlobalBgm() as any;
+  let bgm = this.getGlobalBgm();
 
   if (!bgm || !bgm.scene) {
+    // Kalau musik OFF, tidak usah bikin baru
     if (!s.musicOn) return;
     bgm = this.sound.add('bgm', {
       loop: true,
       volume: s.musicVol ?? 0.8,
     }) as any;
-    bgm.play();
-    this.game.registry.set('globalBgm', bgm);
+    (bgm as any).play();
+    this.setGlobalBgm(bgm);
   }
 
-  bgm.setVolume?.(s.musicVol ?? 0.8);
-  bgm.setMute?.(!s.musicOn);
+  (bgm as any).setVolume?.(s.musicVol ?? 0.8);
+  (bgm as any).setMute?.(!s.musicOn);
 }
 
 private setPreviousSceneKey(key: string | null) {
@@ -385,30 +394,6 @@ protected layoutCenteredLogoTitleArea() {
       yCenter += buttonHeight + gap;
     }
   }
-
-
-  protected layoutTitleArea() {
-  if (!this.titleText || !this.titleText.scene) return;
-  if (!this.titleUnderline || !this.titleUnderline.scene) return;
-
-  const base = Math.min(this.scale.width, this.scale.height);
-  const titleSize = Math.max(20, Math.round(base * 0.06));
-  const titleY = this.scale.height * 0.10;
-
-  this.titleText
-    .setFontSize(titleSize)
-    .setPosition(this.centerX, titleY);
-
-  const underlineY = titleY + Math.round(base * 0.06);
-  this.titleUnderline
-    .setTo(
-      this.centerX - this.panelWidth / 2,
-      underlineY,
-      this.centerX + this.panelWidth / 2,
-      underlineY,
-    )
-    .setLineWidth(1, 1);
-}
 
   protected ensureGraphicsInContainer(
     c: Phaser.GameObjects.Container,

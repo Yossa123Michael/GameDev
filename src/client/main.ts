@@ -56,7 +56,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 640,
   parent: 'game',
   scale: {
-    mode: Phaser.Scale.RESIZE,      // ganti FIT -> RESIZE
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.NO_CENTER,
   },
   scene: [
@@ -76,16 +76,5 @@ const config: Phaser.Types.Core.GameConfig = {
   audio: { disableWebAudio: false },
 };
 
-const game = new Phaser.Game(config);
-
-declare global {
-  interface Window {
-    __RK_GAME?: Phaser.Game;
-  }
-}
-
-if (!window.__RK_GAME) {
-  window.__RK_GAME = game;
-} else {
-  console.log('Phaser Game sudah ada, tidak membuat ulang.');
-}
+// VERSI SEDERHANA: SELALU BUAT GAME BARU
+new Phaser.Game(config);

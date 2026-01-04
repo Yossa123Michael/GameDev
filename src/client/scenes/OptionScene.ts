@@ -35,18 +35,12 @@ export class OptionScene extends BaseScene {
       {
         label: `${t('music') ?? 'Music'}: ${s.musicOn ? 'on' : 'off'}`,
         onTap: () => {
-          SettingsManager.save({ musicOn: !SettingsManager.get().musicOn });
-          this.updateAudioSettings();
-          this.refreshLabels();
+        const cur = SettingsManager.get();
+        SettingsManager.save({ musicOn: !cur.musicOn });
+        this.updateAudioSettings();  // panggil BaseScene
+        this.refreshLabels();
         },
-      },
-      {
-        label: `${t('sfx') ?? 'SFX'}: ${s.sfxOn ? 'on' : 'off'}`,
-        onTap: () => {
-          SettingsManager.save({ sfxOn: !SettingsManager.get().sfxOn });
-          this.refreshLabels();
-        },
-      },
+    },
       {
         label: `${t('language') ?? 'Language'}: ${getLang()}`,
         onTap: () => this.openLanguageModal(),
@@ -85,19 +79,19 @@ export class OptionScene extends BaseScene {
   }
 
   private refreshLabels() {
-    const s = SettingsManager.get();
-    const labels = [
-      `${t('music') ?? 'Music'}: ${s.musicOn ? 'on' : 'off'}`,
-      `${t('sfx') ?? 'SFX'}: ${s.sfxOn ? 'on' : 'off'}`,
-      `${t('language') ?? 'Language'}: ${getLang()}`,
-      `${t('version') ?? 'Version'}: ${formatVersionLabel(s.version)}`,
-      'Remove Account',
-    ];
-    this.rows.forEach((row, i) => {
-      const text = row.getAt(1) as Phaser.GameObjects.Text | undefined;
-      if (text && labels[i]) text.setText(labels[i]!);
-    });
-  }
+  const s = SettingsManager.get();
+  const labels = [
+    `${t('music') ?? 'Music'}: ${s.musicOn ? 'on' : 'off'}`,
+    `${t('sfx') ?? 'SFX'}: ${s.sfxOn ? 'on' : 'off'}`,
+    `${t('language') ?? 'Language'}: ${getLang()}`,
+    `${t('version') ?? 'Version'}: ${formatVersionLabel(s.version)}`,
+    'Remove Account',
+  ];
+  this.rows.forEach((row, i) => {
+    const text = row.getAt(1) as Phaser.GameObjects.Text | undefined;
+    if (text && labels[i]) text.setText(labels[i]!);
+  });
+}
 
   // ===== Modal utilities =====
 

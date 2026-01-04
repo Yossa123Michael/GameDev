@@ -29,14 +29,14 @@ export class PilihModeScene extends BaseScene {
         // tanpa kata "mode"
         label: isId ? 'Belajar' : 'Learn',
         go: () =>
-          this.scene.start('PilihKesulitanScene', {
+          this.goToScene('PilihKesulitanScene', {
             mode: 'belajar',
           }),
       },
       {
         label: isId ? 'Survive' : 'Survive',
         go: () =>
-          this.scene.start('Game', {
+          this.goToScene('Game', {
             mode: 'survive',
             // langsung main; kamu bisa pakai difficulty default, mis. 'menengah'
             difficulty: 'menengah',
