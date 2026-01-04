@@ -12,6 +12,7 @@ import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { AchievementScene } from './scenes/AchievementScene';
 import { OptionScene } from './scenes/OptionScene';
 import { CreditScene } from './scenes/CreditScene';
+import { AudioScene } from './scenes/AudioScene';
 
 console.log('main.ts loaded');
 
@@ -28,26 +29,29 @@ class BootScene extends Phaser.Scene {
   }
 
   async create() {
-    (window as any).WebFont.load({
-      google: { families: ['Nunito:700'] },
-      active: async () => {
-        try {
-          await ensureAnonAuth();
-        } catch (e) {
-          console.error('ensureAnonAuth error (active)', e);
-        }
-        this.scene.start('MainMenuScene');
-      },
-      inactive: async () => {
-        try {
-          await ensureAnonAuth();
-        } catch (e) {
-          console.error('ensureAnonAuth error (inactive)', e);
-        }
-        this.scene.start('MainMenuScene');
-      },
-    });
-  }
+  (window as any).WebFont.load({
+    google: { families: ['Nunito:700'] },
+    active: async () => {
+      try {
+        await ensureAnonAuth();
+      } catch (e) {
+        console.error('ensureAnonAuth error (active)', e);
+      }
+      // LAUNCH audio scene sekali
+      this.scene.launch('AudioScene');
+      this.scene.start('MainMenuScene');
+    },
+    inactive: async () => {
+      try {
+        await ensureAnonAuth();
+      } catch (e) {
+        console.error('ensureAnonAuth error (inactive)', e);
+      }
+      this.scene.launch('AudioScene');
+      this.scene.start('MainMenuScene');
+    },
+  });
+}
 }
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -61,6 +65,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [
     BootScene,
+    AudioScene
     MainMenuScene,
     PilihModeScene,
     PilihKesulitanScene,
@@ -76,5 +81,14 @@ const config: Phaser.Types.Core.GameConfig = {
   audio: { disableWebAudio: false },
 };
 
-// VERSI SEDERHANA: SELALU BUAT GAME BARU
-new Phaser.Game(config);
+declare global {
+  interface Window {
+    __RK_GAME?: Phaser.Game;
+  }
+}
+
+if (!window.__RK_GAME) {
+  window.__RK_GAME = new Phaser.Game(config);
+} else {
+  console.log('Phaser Game sudah ada, tidak membuat ulang.');
+}

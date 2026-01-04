@@ -38,8 +38,5 @@ export class CreditScene extends BaseScene {
   this.ensureBackIcon(true);
   this.layoutTitleArea();
   this.setTitle(t('Credits') ?? 'Kredit');
-
-  const base = Math.min(this.scale.width, this.scale.height);
-  const heightPx = Math.max(48, Math.round(base * 0.06));
-  }
+}
 }

@@ -12,13 +12,13 @@ export class LeaderboardScene extends BaseScene {
     super('LeaderboardScene');
   }
 
-  init(data: { mode?: ModeKey; difficulty?: string | null }) {
-    if (data?.mode) this.mode = data.mode;
-    this.difficulty =
-      typeof data?.difficulty === 'string' || data?.difficulty === null
-        ? data.difficulty
-        : null;
-  }
+init(data: { mode?: ModeKey; difficulty?: string | null }) {
+  if (data?.mode) this.mode = data.mode;
+  this.difficulty =
+    typeof data?.difficulty === 'string' || data?.difficulty === null
+      ? data.difficulty
+      : null;
+}
 
   public override create() {
     super.create();
@@ -52,22 +52,23 @@ export class LeaderboardScene extends BaseScene {
   }
 
 public override draw() {
-  // header
   this.ensureBackIcon(true);
   this.layoutTitleArea();
-  this.setTitle(t('leaderboardTitle') ?? 'Papan Skor');
+  this.setTitle(
+  (t('leaderboardTitle') ?? 'Papan Skor') +
+  (this.difficulty ? ` (${this.difficulty})` : ''),
+);
 
-  // kalau belum ada baris, tidak perlu apa-apa
-  if (!this.rows || this.rows.length === 0) return;
-
-  const base = Math.min(this.scale.width, this.scale.height);
-  const rowH = Math.max(40, Math.round(base * 0.05));
-  const gap = Math.round(rowH * 0.22);
-
-  this.layoutPillsCentered(
-    this.rows,
-    rowH,
-    gap,
-  );
+  // Relayout emptyText supaya tetap di tengah saat resize
+  if (this.emptyText && this.emptyText.scene) {
+    const base = Math.min(this.scale.width, this.scale.height);
+    const fontSize = Math.max(16, Math.round(base * 0.03));
+    this.emptyText
+      .setFontSize(fontSize)
+      .setPosition(
+        this.centerX,
+        this.getContentAreaTop() + Math.round(this.getContentAreaHeight() / 2),
+      );
+  }
 }
 }

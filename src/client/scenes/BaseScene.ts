@@ -1,9 +1,7 @@
 import Phaser from 'phaser';
-import { t } from '../lib/i18n';
 import { SettingsManager } from '../lib/Settings';
 
 const REG_PREV_SCENE = 'rk:prevScene';
-const REG_GLOBAL_BGM = 'rk:globalBgm';
 
 export class BaseScene extends Phaser.Scene {
   protected centerX = 0;
@@ -28,54 +26,6 @@ export class BaseScene extends Phaser.Scene {
     this.load.audio('bgm', 'assets/Sounds/Backsound.wav');
     this.load.audio('sfx_click', 'assets/Sounds/Click.mp3');
   }
-
-
-private getGlobalBgm(): Phaser.Sound.BaseSound | null {
-  const s = this.game.registry.get(REG_GLOBAL_BGM);
-  return (s as Phaser.Sound.BaseSound) ?? null;
-}
-
-private setGlobalBgm(bgm: Phaser.Sound.BaseSound | null) {
-  this.game.registry.set(REG_GLOBAL_BGM, bgm ?? null);
-}
-
-protected initAudio() {
-  const s = SettingsManager.get();
-  let bgm = this.getGlobalBgm();
-
-  // Buat 1 instance global kalau belum ada
-  if (!bgm || !bgm.scene) {
-    bgm = this.sound.add('bgm', {
-      loop: true,
-      volume: s.musicVol ?? 0.8,
-    }) as any;
-    (bgm as any).play();
-    this.setGlobalBgm(bgm);
-  }
-
-  // Terapkan setting
-  (bgm as any).setVolume?.(s.musicVol ?? 0.8);
-  (bgm as any).setMute?.(!s.musicOn);
-}
-
-protected updateAudioSettings() {
-  const s = SettingsManager.get();
-  let bgm = this.getGlobalBgm();
-
-  if (!bgm || !bgm.scene) {
-    // Kalau musik OFF, tidak usah bikin baru
-    if (!s.musicOn) return;
-    bgm = this.sound.add('bgm', {
-      loop: true,
-      volume: s.musicVol ?? 0.8,
-    }) as any;
-    (bgm as any).play();
-    this.setGlobalBgm(bgm);
-  }
-
-  (bgm as any).setVolume?.(s.musicVol ?? 0.8);
-  (bgm as any).setMute?.(!s.musicOn);
-}
 
 private setPreviousSceneKey(key: string | null) {
   this.game.registry.set(REG_PREV_SCENE, key);
@@ -107,7 +57,6 @@ protected goToScene(nextKey: string, data?: any) {
     // Default header: title text + underline
     this.createTitleArea();
     this.createBackIcon();
-    this.initAudio();
     this.draw();
 
     this.scale.on('resize', () => {

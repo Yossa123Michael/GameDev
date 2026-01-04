@@ -64,7 +64,7 @@ export class Game extends BaseScene {
     super('Game');
   }
 
-  override init(data: { mode?: Mode; difficulty?: DifficultyKey }) {
+  init(data: { mode?: Mode; difficulty?: DifficultyKey }) {
     if (data?.mode) this.mode = data.mode;
     if (data?.difficulty) this.difficulty = data.difficulty;
     this.cfg = difficultySettings[this.difficulty];

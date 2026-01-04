@@ -1,7 +1,8 @@
 import { BaseScene } from './BaseScene';
 import { SettingsManager } from '../lib/Settings';
 import { t, getLang, setLang, emitLanguageChanged } from '../lib/i18n';
-import { formatVersionLabel, VersionCode, versionsOrder } from '../version';
+import { formatVersionLabel, versionsOrder } from '../version';
+import { emitGlobalAudioUpdate } from './AudioScene';
 
 export class OptionScene extends BaseScene {
   private rows: Phaser.GameObjects.Container[] = [];
@@ -32,28 +33,39 @@ export class OptionScene extends BaseScene {
     );
 
     const items = [
-      {
-        label: `${t('music') ?? 'Music'}: ${s.musicOn ? 'on' : 'off'}`,
-        onTap: () => {
-        const cur = SettingsManager.get();
-        SettingsManager.save({ musicOn: !cur.musicOn });
-        this.updateAudioSettings();  // panggil BaseScene
-        this.refreshLabels();
-        },
+  {
+     label: `${t('music') ?? 'Music'}: ${s.musicOn ? 'on' : 'off'}`,
+    onTap: () => {
+      const cur = SettingsManager.get();
+      SettingsManager.save({ musicOn: !cur.musicOn });
+      emitGlobalAudioUpdate();
+      this.refreshLabels();
     },
-      {
-        label: `${t('language') ?? 'Language'}: ${getLang()}`,
-        onTap: () => this.openLanguageModal(),
-      },
-      {
-        label: `${t('version') ?? 'Version'}: ${formatVersionLabel(s.version)}`,
-        onTap: () => this.openVersionModal(),
-      },
-      {
-        label: 'Remove Account',
-        onTap: () => { try { localStorage.clear(); } catch {} },
-      },
-    ];
+  },
+  {
+    label: `${t('sfx') ?? 'SFX'}: ${s.sfxOn ? 'on' : 'off'}`,
+    onTap: () => {
+      const cur = SettingsManager.get();
+      SettingsManager.save({ sfxOn: !cur.sfxOn });
+      this.refreshLabels();
+    },
+  },
+  {
+    label: `${t('language') ?? 'Language'}: ${getLang()}`,
+    onTap: () => this.openLanguageModal(),
+  },
+  {
+    label: `${t('version') ?? 'Version'}: ${formatVersionLabel(s.version)}`,
+    onTap: () => this.openVersionModal(),
+  },
+  {
+    label: t('resetLocal') ?? 'Remove Account',
+    onTap: () => {
+      try { localStorage.clear(); } catch {}
+      this.refreshLabels();
+    },
+  },
+];
 
     this.rows = items.map(it =>
       this.createWidePill(
@@ -85,7 +97,7 @@ export class OptionScene extends BaseScene {
     `${t('sfx') ?? 'SFX'}: ${s.sfxOn ? 'on' : 'off'}`,
     `${t('language') ?? 'Language'}: ${getLang()}`,
     `${t('version') ?? 'Version'}: ${formatVersionLabel(s.version)}`,
-    'Remove Account',
+    t('resetLocal') ??'Remove Account',
   ];
   this.rows.forEach((row, i) => {
     const text = row.getAt(1) as Phaser.GameObjects.Text | undefined;
@@ -232,7 +244,6 @@ private buildSimpleModal(
   }
 
   private openVersionModal() {
-    const s = SettingsManager.get();
     this.buildSimpleModal(t('version') ?? 'Version', [
       ...versionsOrder.map(v => ({
         label: formatVersionLabel(v),
